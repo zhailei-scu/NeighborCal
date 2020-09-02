@@ -548,16 +548,6 @@ int main(int argc, char** argv) {
 			//Common_NeighborListCal_CPU(NSize, Host_TestArrayIn, Host_TestArrayOut_CPU);
 
 
-
-
-
-
-
-
-
-
-
-
 			//Verify
 			//for (int i = 0; i < NSize; i++) {
 			//	if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_MyMehtod[i]) {
