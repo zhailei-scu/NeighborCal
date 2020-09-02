@@ -553,6 +553,9 @@ int main(int argc, char** argv) {
 
 
 
+
+
+
 			//Verify
 			//for (int i = 0; i < NSize; i++) {
 			//	if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_MyMehtod[i]) {
