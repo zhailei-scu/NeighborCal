@@ -211,8 +211,8 @@ int main33(int argc, char** argv) {
 	cudaEventCreate(&StopEventCPU, 0);
 
 	for (int NRand = 0; NRand < 1; NRand++) {
-
-		for (NSize = 50; NSize < 100000000; NSize<<=1) {
+		int Nbox = 800;
+		for (NSize = 50* Nbox; NSize < 100000000; NSize<<=1) {
 
 			Host_TestArrayIn = new double[NSize];
 			Host_TestArrayOut = new double[NSize];
@@ -468,7 +468,6 @@ int main3(int argc, char** argv) {
 	srand(55352);
 
 	for (int NRand = 0; NRand < 1; NRand++) {
-
 		for (NSize = 50; NSize < 100000000; NSize <<= 1) {
 
 			std::cout << "NSize :  " << NSize << std::endl;
@@ -741,13 +740,13 @@ int main(int argc, char** argv) {
 			}
 
 
-			std::cout << "************My Method radixSort************" << std::endl;
+			//std::cout << "************My Method radixSort************" << std::endl;
 
-			My_NeighborListCal_RadixSort_multipleBox(NSize,NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX, Dev_TestArrayIn, SortedIndex_Dev, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_RadixSort, timerMyMethod);
+			//My_NeighborListCal_RadixSort_multipleBox(NSize,NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX, Dev_TestArrayIn, SortedIndex_Dev, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_RadixSort, timerMyMethod);
 
-			totalTimerMyMethod = totalTimerMyMethod + timerMyMethod;
+			//totalTimerMyMethod = totalTimerMyMethod + timerMyMethod;
 
-			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod << " for My Method: " << NSize << std::endl;
+			//std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod << " for My Method: " << NSize << std::endl;
 
 			std::cout << "************Method Common GPU************" << std::endl;
 
