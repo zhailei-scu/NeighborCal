@@ -36,6 +36,9 @@
     <CudaCompile Include="bitnicSort_toApply.cu">
       <Filter>源文件</Filter>
     </CudaCompile>
+    <CudaCompile Include="MultipleBox_MyNeighborList.cu">
+      <Filter>源文件</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bitnicSort.h">
@@ -51,6 +54,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="bitnicSort_toApply.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MyNeighborList_multipleBox.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

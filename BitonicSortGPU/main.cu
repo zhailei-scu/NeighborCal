@@ -17,6 +17,7 @@
 #include <math.h>
 #include <algorithm>
 #include "MyNeighborList.h"
+#include "MyNeighborList_multipleBox.h"
 
 extern "C" int ComparetGT(const void *ValA,const void *ValB) {
 
@@ -147,7 +148,7 @@ int main_wait(int argc, char** argv) {
 }
 
 
-int main(int argc, char** argv) {
+int main33(int argc, char** argv) {
 	int NSize;
 	double *Host_TestArrayIn;
 	double *Host_TestArrayOut;
@@ -576,6 +577,237 @@ int main3(int argc, char** argv) {
 					std::cout << "My neighbor-list calculation result is: " << Host_TestArrayOut_MyMehtod_RadixSort[i] << std::endl;
 
 					std::cout <<"  Distance normal GPU: "<< (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2]) << std::endl;
+
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2] << std::endl;
+
+					std::cout << "My neighbor-list calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2]) << std::endl;
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2] << std::endl;
+
+
+					std::cin >> noone;
+				}
+			}
+
+		}
+
+	}
+
+
+	std::cout << "The total elapse time for my method is (ms) : " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << totalTimerMyMethod << std::endl;
+
+	std::cout << "The total elapse time for Common GPU (ms) : " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << totalTimerCommonGPU << std::endl;
+
+
+	err = cudaSetDevice(currentDevice);
+
+	return 0;
+}
+
+
+int main(int argc, char** argv) {
+	int NSize;
+	double **Host_TestArrayIn;
+	double *Host_TestArrayIn_X;
+	double **Dev_TestArrayIn;
+	double *Dev_TestArrayIn_SotedX;
+	double *TestArray_Dev_OneDim;
+	double **Addr_HostRecordDev;
+	int *SortedIndex_Dev;
+	int *SortedIndex_Host;
+	int *Dev_NNearestNeighbor;
+	int *Host_TestArrayOut_MyMehtod_RadixSort;
+	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort;
+	int *Host_TestArrayOut_Norm;
+	int *Host_TestArrayOut_CPU;
+	int **Host_IDStartEnd;
+	int **Dev_IDStartEnd;
+	int *TestArray_Dev_OneDim_StartEndID;
+	int **Addr_HostRecordDev_StartEndID;
+	int currentDevice;
+	int noone;
+	float totalTimerMyMethod;
+	float timerMyMethod;
+	float totalTimerCommonGPU;
+	float timerCommonGPU;
+
+	totalTimerMyMethod = 0.E0;
+	timerMyMethod = 0.E0;
+	totalTimerCommonGPU = 0.E0;
+	timerCommonGPU = 0.E0;
+
+
+	double BoxSize = 1000;
+	int NBox = 800;
+
+	cudaError err = cudaGetDevice(&currentDevice);
+
+	err = cudaSetDevice(0);
+
+	srand(55352);
+
+	for (int NRand = 0; NRand < 1; NRand++) {
+
+		for (int NSizeEachBox = 50; NSizeEachBox < 100000000; NSizeEachBox <<= 1) {
+
+			NSize = NSizeEachBox * NBox;
+
+			std::cout << "NSize :  " << NSize << std::endl;
+
+			Host_TestArrayIn = new double*[NSize];
+			Addr_HostRecordDev = new double*[NSize];
+
+			Host_IDStartEnd = new int*[NBox];
+			Addr_HostRecordDev_StartEndID = new int*[NBox];
+
+			Host_TestArrayOut_MyMehtod_RadixSort = new int[NSize];
+			Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort = new int[NSize];
+			Host_TestArrayOut_Norm = new int[NSize];
+			Host_TestArrayOut_CPU = new int[NSize];
+
+			Host_TestArrayIn_X = new double[NSize];
+
+			SortedIndex_Host = new int[NSize];
+
+			for (int i = 0; i < NSize; i++) {
+				Host_TestArrayIn[i] = new double[3];
+
+				for (int j = 0; j < 3; j++) {
+					Host_TestArrayIn[i][j] = BoxSize * (double(rand()) / RAND_MAX - 0.5);
+				}
+
+				Host_TestArrayIn_X[i] = Host_TestArrayIn[i][0];
+
+				SortedIndex_Host[i] = i;
+			}
+
+
+
+			err = cudaMalloc((void**)&Dev_IDStartEnd,NBox*sizeof(int*));
+			for (int i = 0; i < NBox; i++) {
+				Host_IDStartEnd[i] = new int[2];
+
+				Host_IDStartEnd[i][0] = i * NSizeEachBox;
+
+				Host_IDStartEnd[i][1] = (i+1)*NSizeEachBox - 1;
+
+				if (Host_IDStartEnd[i][1] < 0) Host_IDStartEnd[i][1] = 0;
+
+				err = cudaMalloc((void**)&TestArray_Dev_OneDim_StartEndID, 2 * sizeof(int));
+				
+				cudaMemcpy(TestArray_Dev_OneDim_StartEndID, Host_IDStartEnd, 2 * sizeof(int), cudaMemcpyHostToDevice);
+
+				Addr_HostRecordDev_StartEndID[i] = TestArray_Dev_OneDim_StartEndID;
+			}
+
+			cudaMemcpy(Dev_IDStartEnd, Addr_HostRecordDev_StartEndID, NBox *sizeof(int*), cudaMemcpyHostToDevice);
+
+
+			err = cudaMalloc((void**)&Dev_TestArrayIn, NSize * sizeof(double*));
+			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX, NSize * sizeof(double));
+
+
+			err = cudaMalloc((void**)&SortedIndex_Dev, NSize * sizeof(int));
+			err = cudaMalloc((void**)&Dev_NNearestNeighbor, NSize * sizeof(int));
+
+			for (int i = 0; i < NSize; i++) {
+				err = cudaMalloc((void**)&TestArray_Dev_OneDim, 3 * sizeof(double));
+
+				cudaMemcpy(TestArray_Dev_OneDim, Host_TestArrayIn[i], 3 * sizeof(double), cudaMemcpyHostToDevice);
+
+				Addr_HostRecordDev[i] = TestArray_Dev_OneDim;
+			}
+
+			cudaMemcpy(Dev_TestArrayIn, Addr_HostRecordDev, NSize * sizeof(double*), cudaMemcpyHostToDevice);
+
+
+			err = cudaMemcpy(Dev_TestArrayIn_SotedX, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(SortedIndex_Dev, SortedIndex_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
+
+
+			if (cudaSuccess != err) {
+				std::cout << "Error occour when copy  Dev_TestArrayIn_SotedX" << std::endl;
+
+				std::cout << cudaGetErrorName(err) << std::endl;
+				std::cout << cudaGetErrorString(err) << std::endl;
+				std::cin >> noone;
+			}
+
+
+			std::cout << "************My Method radixSort************" << std::endl;
+
+			My_NeighborListCal_RadixSort_multipleBox(NSize,NBox, Dev_IDStartEnd, Dev_TestArrayIn_SotedX, Dev_TestArrayIn, SortedIndex_Dev, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_RadixSort, timerMyMethod);
+
+			totalTimerMyMethod = totalTimerMyMethod + timerMyMethod;
+
+			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod << " for My Method: " << NSize << std::endl;
+
+			std::cout << "************Method Common GPU************" << std::endl;
+
+			Common_NeighborListCal_multipleBox(NSize, NBox, Dev_IDStartEnd, Dev_TestArrayIn, Dev_NNearestNeighbor, Host_TestArrayOut_Norm, timerCommonGPU);
+
+			totalTimerCommonGPU = totalTimerCommonGPU + timerCommonGPU;
+
+			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerCommonGPU << " for Common GPU: " << NSize << std::endl;
+
+			std::cout << "************Method Common CPU************" << std::endl;
+
+			Common_NeighborListCal_CPU_multipleBox(NSize, NBox, Host_IDStartEnd, Host_TestArrayIn, Host_TestArrayOut_CPU);
+
+
+			//Verify
+			for (int i = 0; i < NSize; i++) {
+				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_MyMehtod_RadixSort[i]) {
+					std::cout << "It is wrong for index: " << i << std::endl;
+					std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
+					std::cout << "My neighbor-list calculation result is: " << Host_TestArrayOut_MyMehtod_RadixSort[i] << std::endl;
+
+					std::cout << "  Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
+
+					std::cout << "My neighbor-list calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2]) << std::endl;
+
+					std::cin >> noone;
+				}
+			}
+
+			//Verify
+			for (int i = 0; i < NSize; i++) {
+				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_Norm[i]) {
+					std::cout << "It is wrong for index: " << i << std::endl;
+					std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
+					std::cout << "The common GPU result is: " << Host_TestArrayOut_Norm[i] << std::endl;
+
+					std::cout << "   Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
+
+					std::cout << "The common GPU calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2]) << std::endl;
+
+					std::cin >> noone;
+				}
+			}
+
+			//Verify
+			for (int i = 0; i < NSize; i++) {
+				if (Host_TestArrayOut_Norm[i] != Host_TestArrayOut_MyMehtod_RadixSort[i]) {
+					std::cout << "It is wrong for index: " << i << std::endl;
+					std::cout << "The common GPU neighbor-list result is: " << Host_TestArrayOut_Norm[i] << std::endl;
+					std::cout << "My neighbor-list calculation result is: " << Host_TestArrayOut_MyMehtod_RadixSort[i] << std::endl;
+
+					std::cout << "  Distance normal GPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0]) +
 						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1]) +
 						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2]) << std::endl;
 

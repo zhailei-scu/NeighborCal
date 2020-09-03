@@ -159,6 +159,7 @@
       <FileType>Document</FileType>
     </CudaCompile>
     <CudaCompile Include="bitnicSort_toApply.cu" />
+    <CudaCompile Include="MultipleBox_MyNeighborList.cu" />
     <CudaCompile Include="MyNeighborList.cu" />
     <CudaCompile Include="radixSort.cu" />
     <CudaCompile Include="RadixSortSample.cu" />
@@ -175,6 +176,7 @@
     <ClInclude Include="bitnicSort.h" />
     <ClInclude Include="bitnicSort_toApply.h" />
     <ClInclude Include="MyNeighborList.h" />
+    <ClInclude Include="MyNeighborList_multipleBox.h" />
     <ClInclude Include="radixSort.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
