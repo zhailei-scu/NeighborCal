@@ -147,7 +147,7 @@ int main_wait(int argc, char** argv) {
 }
 
 
-int main_wait3(int argc, char** argv) {
+int main(int argc, char** argv) {
 	int NSize;
 	double *Host_TestArrayIn;
 	double *Host_TestArrayOut;
@@ -211,7 +211,7 @@ int main_wait3(int argc, char** argv) {
 
 	for (int NRand = 0; NRand < 1; NRand++) {
 
-		for (NSize = 5001; NSize < 100000000; NSize<<=1) {
+		for (NSize = 50; NSize < 100000000; NSize<<=1) {
 
 			Host_TestArrayIn = new double[NSize];
 			Host_TestArrayOut = new double[NSize];
@@ -430,7 +430,7 @@ int main_wait3(int argc, char** argv) {
 }
 
 
-int main(int argc, char** argv) {
+int main3(int argc, char** argv) {
 	int NSize;
 	double **Host_TestArrayIn;
 	double *Host_TestArrayIn_X;
@@ -468,7 +468,7 @@ int main(int argc, char** argv) {
 
 	for (int NRand = 0; NRand < 1; NRand++) {
 
-		for (NSize = 5001; NSize < 100000000; NSize <<= 1) {
+		for (NSize = 50; NSize < 100000000; NSize <<= 1) {
 
 			std::cout << "NSize :  " << NSize << std::endl;
 

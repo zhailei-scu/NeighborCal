@@ -331,46 +331,46 @@ void My_NeighborListCal_RadixSort(int NClusters, double* ToSortDev_ClustersPosX,
 
 }
 
-void My_NeighborListCal_ArbitrayBitonicSort(int NClusters, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
-	dim3 threads;
-	dim3 blocks;
-	int NB;
-	cudaError err;
-	int noone;
-
-	cudaEvent_t StartEvent;
-	cudaEvent_t StopEvent;
-
-	cudaEventCreate(&StartEvent);
-	cudaEventCreate(&StopEvent);
-
-	cudaEventRecord(StartEvent, 0);
-
-	thrust::device_ptr<double> Device_thrust_Key(ToSortDev_ClustersPosX);
-	thrust::device_ptr<int> Device_thrust_Value(SortedIndex);
-
-	NB = (NClusters - 1) / BLOCKSIZE + 1;
-
-	blocks = dim3(NB, 1, 1);
-	threads = dim3(BLOCKSIZE, 1, 1);
-	thrust::sort_by_key(Device_thrust_Key, Device_thrust_Key + NClusters, Device_thrust_Value);
-
-	Kernel_MyNeighborListCal << < blocks, threads >> > (NClusters, Dev_ClustersPosXYZ, SortedIndex, Dev_NNearestNeighbor);
-
-	cudaDeviceSynchronize();
-
-	cudaEventRecord(StopEvent, 0);
-
-	cudaEventSynchronize(StopEvent);
-
-	cudaEventElapsedTime(&timerMyMethod, StartEvent, StopEvent);
-
-	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
-
-	cudaEventDestroy(StartEvent);
-	cudaEventDestroy(StopEvent);
-
-}
+//void My_NeighborListCal_ArbitrayBitonicSort(int NClusters, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+//	dim3 threads;
+//	dim3 blocks;
+//	int NB;
+//	cudaError err;
+//	int noone;
+//
+//	cudaEvent_t StartEvent;
+//	cudaEvent_t StopEvent;
+//
+//	cudaEventCreate(&StartEvent);
+//	cudaEventCreate(&StopEvent);
+//
+//	cudaEventRecord(StartEvent, 0);
+//
+//	thrust::device_ptr<double> Device_thrust_Key(ToSortDev_ClustersPosX);
+//	thrust::device_ptr<int> Device_thrust_Value(SortedIndex);
+//
+//	NB = (NClusters - 1) / BLOCKSIZE + 1;
+//
+//	blocks = dim3(NB, 1, 1);
+//	threads = dim3(BLOCKSIZE, 1, 1);
+//	thrust::sort_by_key(Device_thrust_Key, Device_thrust_Key + NClusters, Device_thrust_Value);
+//
+//	Kernel_MyNeighborListCal << < blocks, threads >> > (NClusters, Dev_ClustersPosXYZ, SortedIndex, Dev_NNearestNeighbor);
+//
+//	cudaDeviceSynchronize();
+//
+//	cudaEventRecord(StopEvent, 0);
+//
+//	cudaEventSynchronize(StopEvent);
+//
+//	cudaEventElapsedTime(&timerMyMethod, StartEvent, StopEvent);
+//
+//	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+//
+//	cudaEventDestroy(StartEvent);
+//	cudaEventDestroy(StopEvent);
+//
+//}
 
 
 void Common_NeighborListCal(int NClusters, double** Dev_ClustersPosXYZ, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor,float &timerCommonGPU) {
