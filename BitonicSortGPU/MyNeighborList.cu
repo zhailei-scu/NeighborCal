@@ -42,14 +42,14 @@ __global__ void Kernel_MyNeighborListCal(int NClusters, double** Dev_ClustersPos
 
 	minDistance = 1.E32;
 
-	NRemind = RightBound - LeftBound;
-
 	/*Right Hand Searching*/
 	exitFlag = false;
 	LeftBound = bid * BLOCKSIZE;
 	if (LeftBound < 0) LeftBound = 0;
 	RightBound = (bid + 1)*BLOCKSIZE;
 	if (RightBound > NClusters) RightBound = NClusters;
+
+	NRemind = RightBound - LeftBound;
 
 	NExitedThreadsRight = 0;
 
