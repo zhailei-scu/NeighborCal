@@ -579,9 +579,17 @@ int main(int argc, char** argv) {
 						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1]) +
 						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2]) << std::endl;
 
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2] << std::endl;
+
 					std::cout << "My neighbor-list calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0]) +
 						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1]) +
 						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2]) << std::endl;
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2] << std::endl;
+
 
 					std::cin >> noone;
 				}

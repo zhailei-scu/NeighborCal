@@ -37,9 +37,12 @@ __global__ void Kernel_MyNeighborListCal(int NClusters, double** Dev_ClustersPos
 	int MapedIdex;
 	__shared__ double Shared_XYZ[BLOCKSIZE][3];
 	__shared__ int Shared_SortedID[BLOCKSIZE];
-	__shared__ int NExitedThreads;
+	__shared__ int NExitedThreadsRight;
+	__shared__ int NExitedThreadsLeft;
 
 	minDistance = 1.E32;
+
+	NRemind = RightBound - LeftBound;
 
 	/*Right Hand Searching*/
 	exitFlag = false;
@@ -48,9 +51,7 @@ __global__ void Kernel_MyNeighborListCal(int NClusters, double** Dev_ClustersPos
 	RightBound = (bid + 1)*BLOCKSIZE;
 	if (RightBound > NClusters) RightBound = NClusters;
 
-	NRemind = RightBound - LeftBound;
-
-	NExitedThreads = 0;
+	NExitedThreadsRight = 0;
 
 	if (cid < NClusters) {
 
@@ -64,7 +65,7 @@ __global__ void Kernel_MyNeighborListCal(int NClusters, double** Dev_ClustersPos
 
 	while (LeftBound < RightBound) {
 
-		if (NExitedThreads >= NRemind) {
+		if (NExitedThreadsRight >= NRemind) {
 			break;
 		}
 
@@ -108,7 +109,7 @@ __global__ void Kernel_MyNeighborListCal(int NClusters, double** Dev_ClustersPos
 
 						if (distanceX > minDistance) {
 							exitFlag = true;
-							atomicAdd_block(&NExitedThreads, 1);
+							atomicAdd_block(&NExitedThreadsRight, 1);
 							break;
 						}
 
@@ -133,11 +134,11 @@ __global__ void Kernel_MyNeighborListCal(int NClusters, double** Dev_ClustersPos
 	RightBound = bid * BLOCKSIZE;
 	if (RightBound > NClusters) RightBound = NClusters;
 
-	NExitedThreads = 0;
+	NExitedThreadsLeft = 0;
 
 	while (LeftBound < RightBound) {
 
-		if (NExitedThreads >= NRemind) {
+		if (NExitedThreadsLeft >= NRemind) {
 			break;
 		}
 
@@ -182,7 +183,7 @@ __global__ void Kernel_MyNeighborListCal(int NClusters, double** Dev_ClustersPos
 
 						if (distanceX > minDistance) {
 							exitFlag = true;
-							atomicAdd_block(&NExitedThreads, 1);
+							atomicAdd_block(&NExitedThreadsLeft, 1);
 							break;
 						}
 
