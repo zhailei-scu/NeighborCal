@@ -13,10 +13,12 @@
 #include <thrust/detail/type_traits.h>
 #include "MyNeighborList_multipleBox.h"
 #include <algorithm>
+#include <map>
+#include <vector>
 
 #define BLOCKSIZE 512
 
-__global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor) {
+__global__ void Kernel_MyNeighborListCal_multipleBox(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int cid = bid * BLOCKSIZE + tid;
@@ -26,7 +28,7 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, in
 	double Pos_X;
 	double Pos_Y;
 	double Pos_Z;
-	int relativeIC;
+	int relativeJC;
 	double distance;
 	double minDistance;
 	double distanceX;
@@ -36,27 +38,42 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, in
 	bool exitFlag;
 	int NRemind;
 	int MapedIdex;
+	int IBox;
+	int scid;
+	int ecid;
+	int bid0;
+	int IC;
 	__shared__ double Shared_XYZ[BLOCKSIZE][3];
 	__shared__ int Shared_SortedID[BLOCKSIZE];
 	__shared__ int NExitedThreadsRight;
 	__shared__ int NExitedThreadsLeft;
 
+	IBox = bid / BlockNumEachBox;
+
+	scid = IDStartEnd_Dev[IBox][0];
+	ecid = IDStartEnd_Dev[IBox][1];
+
+	bid0 = IBox * BlockNumEachBox;
+
+	IC = scid + (cid - bid0 * BLOCKSIZE);
+
 	minDistance = 1.E32;
 
 	/*Right Hand Searching*/
 	exitFlag = false;
-	LeftBound = bid * BLOCKSIZE;
-	if (LeftBound < 0) LeftBound = 0;
-	RightBound = (bid + 1)*BLOCKSIZE;
-	if (RightBound > NClusters) RightBound = NClusters;
 
-	NRemind = RightBound - LeftBound;
+	LeftBound = scid + (bid - bid0)*BLOCKSIZE;
+	if (LeftBound < scid) LeftBound = scid;
+	RightBound = LeftBound  + BLOCKSIZE - 1;
+	if (RightBound > ecid) RightBound = ecid;
+
+	NRemind = RightBound - LeftBound + 1;
 
 	NExitedThreadsRight = 0;
 
-	if (cid < NClusters) {
+	if (IC <= ecid) {
 
-		MapedIdex = SortedIndex[cid];
+		MapedIdex = SortedIndex[IC];
 
 		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
 		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
@@ -64,13 +81,13 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, in
 
 	}
 
-	while (LeftBound < RightBound) {
+	while (LeftBound <= RightBound) {
 
 		if (NExitedThreadsRight >= NRemind) {
 			break;
 		}
 
-		if ((LeftBound + tid) < NClusters) {
+		if ((LeftBound + tid) <= ecid) {
 
 			sortedID = SortedIndex[LeftBound + tid];
 
@@ -85,17 +102,17 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, in
 		__syncthreads();
 
 
-		if (cid < NClusters) {
+		if (IC <= ecid) {
 
 			if (false == exitFlag) {
-				for (int IC = LeftBound; IC < RightBound; IC++) {
-					if (IC != cid) {
+				for (int JC = LeftBound; JC <= RightBound; JC++) {
+					if (JC != IC) {
 
-						relativeIC = IC - LeftBound;
+						relativeJC = JC - LeftBound;
 
-						distanceX = Shared_XYZ[relativeIC][0] - Pos_X;
-						distanceY = Shared_XYZ[relativeIC][1] - Pos_Y;
-						distanceZ = Shared_XYZ[relativeIC][2] - Pos_Z;
+						distanceX = Shared_XYZ[relativeJC][0] - Pos_X;
+						distanceY = Shared_XYZ[relativeJC][1] - Pos_Y;
+						distanceZ = Shared_XYZ[relativeJC][2] - Pos_Z;
 
 						distanceX = distanceX * distanceX;
 						distanceY = distanceY * distanceY;
@@ -105,7 +122,7 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, in
 
 						if (minDistance > distance) {
 							minDistance = distance;
-							NNID = Shared_SortedID[relativeIC];
+							NNID = Shared_SortedID[relativeJC];
 						}
 
 						if (distanceX > minDistance) {
@@ -123,28 +140,29 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, in
 
 		__syncthreads();
 
-		LeftBound = LeftBound + BLOCKSIZE;
-		RightBound = RightBound + BLOCKSIZE;
-		if (RightBound > NClusters) RightBound = NClusters;
+		LeftBound = RightBound + 1;
+		RightBound = LeftBound + BLOCKSIZE - 1;
+		if (RightBound > ecid) RightBound = ecid;
 	}
 
 	/*Left Hand Searching*/
 	exitFlag = false;
-	LeftBound = (bid - 1) * BLOCKSIZE;
-	if (LeftBound < 0) LeftBound = 0;
-	RightBound = bid * BLOCKSIZE;
-	if (RightBound > NClusters) RightBound = NClusters;
+
+	LeftBound = scid + (bid - bid0 - 1)*BLOCKSIZE;
+	if (LeftBound < scid) LeftBound = scid;
+	RightBound = LeftBound + BLOCKSIZE - 1;
+	if (RightBound > ecid) RightBound = ecid;
 
 	NExitedThreadsLeft = 0;
 
-	while (LeftBound < RightBound) {
+	while (LeftBound <= RightBound) {
 
 		if (NExitedThreadsLeft >= NRemind) {
 			break;
 		}
 
 
-		if ((LeftBound + tid) < NClusters) {
+		if ((LeftBound + tid) <= ecid) {
 
 			sortedID = SortedIndex[LeftBound + tid];
 
@@ -159,17 +177,17 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, in
 
 		__syncthreads();
 
-		if (cid < NClusters) {
+		if (IC <= ecid) {
 
 			if (false == exitFlag) {
-				for (int IC = RightBound - 1; IC >= LeftBound; IC--) {
-					if (IC != cid) {
+				for (int JC = RightBound; JC >= LeftBound; JC--) {
+					if (JC != IC) {
 
-						relativeIC = IC - LeftBound;
+						relativeJC = JC - LeftBound;
 
-						distanceX = Shared_XYZ[relativeIC][0] - Pos_X;
-						distanceY = Shared_XYZ[relativeIC][1] - Pos_Y;
-						distanceZ = Shared_XYZ[relativeIC][2] - Pos_Z;
+						distanceX = Shared_XYZ[relativeJC][0] - Pos_X;
+						distanceY = Shared_XYZ[relativeJC][1] - Pos_Y;
+						distanceZ = Shared_XYZ[relativeJC][2] - Pos_Z;
 
 						distanceX = distanceX * distanceX;
 						distanceY = distanceY * distanceY;
@@ -179,7 +197,7 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, in
 
 						if (minDistance > distance) {
 							minDistance = distance;
-							NNID = Shared_SortedID[relativeIC];
+							NNID = Shared_SortedID[relativeJC];
 						}
 
 						if (distanceX > minDistance) {
@@ -197,15 +215,65 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int NClusters, int NBox, in
 
 		__syncthreads();
 
-		RightBound = LeftBound;
-		LeftBound = LeftBound - BLOCKSIZE;
-		if (LeftBound < 0) LeftBound = 0;
+		RightBound = LeftBound - 1;
+		LeftBound = RightBound - BLOCKSIZE + 1;
+		if (LeftBound < scid) LeftBound = scid;
 	}
 
 
-	if (cid < NClusters) {
+	if (IC <= ecid) {
 		Dev_NNearestNeighbor[MapedIdex] = NNID;
 	}
+
+}
+
+bool myCompare(double A,double B) {
+	return (A < B);
+}
+
+bool myCompare2(std::pair<double,int> A, std::pair<double, int> B) {
+	return (A.first < B.first);
+}
+
+
+void SimpleSort_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, double* ToSortDev_ClustersPosX,int* SortedIndex_Dev) {
+	double* ToSortHost_ClustersPosX;
+	int* SortedIndex_Host;
+	std::map<double, int> theMap;
+
+	ToSortHost_ClustersPosX = new double[NClusters];
+	SortedIndex_Host = new int[NClusters];
+
+	cudaMemcpy(ToSortHost_ClustersPosX, ToSortDev_ClustersPosX, NClusters * sizeof(double), cudaMemcpyDeviceToHost);
+
+	cudaMemcpy(SortedIndex_Host, SortedIndex_Dev, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+
+	for (int IBox = 0; IBox < NBox; IBox++) {
+
+		theMap.clear();
+		std::map<double, int>().swap(theMap);
+
+		for (int i = IDStartEnd_Host[IBox][0]; i <= IDStartEnd_Host[IBox][1]; i++) {
+			theMap.insert(std::map<double, int>::value_type(ToSortHost_ClustersPosX[i], SortedIndex_Host[i]));
+		}
+
+		std::vector<std::pair<double, int>> OneBox(theMap.begin(), theMap.end());
+
+		std::sort(OneBox.begin(), OneBox.end(), myCompare2);
+
+		std::vector<std::pair<double, int>>::iterator ptr = OneBox.begin();
+		for (int i = IDStartEnd_Host[IBox][0]; i <= IDStartEnd_Host[IBox][1]; i++) {
+			SortedIndex_Host[i] = (*ptr).second;
+
+			ptr++;
+		}
+
+		OneBox.clear();
+
+		std::vector<std::pair<double, int>>().swap(OneBox);
+	}
+
+	cudaMemcpy(SortedIndex_Dev,SortedIndex_Host,NClusters * sizeof(int), cudaMemcpyHostToDevice);
 
 }
 
@@ -255,7 +323,7 @@ __global__ void Kernel_NormalCalcNeighborList_multipleBox(int BlockNumEachBox, i
 		Pos_Z = Dev_ClustersPosXYZ[IC][2];
 	}
 
-	while (LeftBound < RightBound) {
+	while (LeftBound <= RightBound) {
 
 		if ((LeftBound + tid) <= ecid) {
 			Shared_XYZ[tid][0] = Dev_ClustersPosXYZ[LeftBound + tid][0];
@@ -304,13 +372,14 @@ __global__ void Kernel_NormalCalcNeighborList_multipleBox(int BlockNumEachBox, i
 }
 
 
-
-void My_NeighborListCal_RadixSort_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+void My_NeighborListCal_ArbitrayBitonicSort_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
 	cudaError err;
 	int noone;
+	int BlockNumEachBox;
+	int BlockNumEachBoxtemp;
 
 	cudaEvent_t StartEvent;
 	cudaEvent_t StopEvent;
@@ -320,16 +389,25 @@ void My_NeighborListCal_RadixSort_multipleBox(int NClusters, int NBox, int **IDS
 
 	cudaEventRecord(StartEvent, 0);
 
-	thrust::device_ptr<double> Device_thrust_Key(ToSortDev_ClustersPosX);
-	thrust::device_ptr<int> Device_thrust_Value(SortedIndex);
+	BlockNumEachBox = 0;
 
-	NB = (NClusters - 1) / BLOCKSIZE + 1;
+	for (int i = 0; i < NBox; i++) {
+		BlockNumEachBoxtemp = (IDStartEnd_Host[i][1] - IDStartEnd_Host[i][0]) / BLOCKSIZE + 1;
+
+		if (BlockNumEachBox < BlockNumEachBoxtemp) BlockNumEachBox = BlockNumEachBoxtemp;
+	}
+
+	NB = BlockNumEachBox * NBox;
 
 	blocks = dim3(NB, 1, 1);
 	threads = dim3(BLOCKSIZE, 1, 1);
-	thrust::sort_by_key(Device_thrust_Key, Device_thrust_Key + NClusters, Device_thrust_Value);
 
-	Kernel_MyNeighborListCal_multipleBox << < blocks, threads >> > (NClusters, NBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndex, Dev_NNearestNeighbor);
+	//thrust::sort_by_key(Device_thrust_Key, Device_thrust_Key + NClusters, Device_thrust_Value);
+
+
+	SimpleSort_multipleBox(NClusters,NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndex);
+
+	Kernel_MyNeighborListCal_multipleBox << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndex, Dev_NNearestNeighbor);
 
 	cudaDeviceSynchronize();
 
@@ -345,47 +423,6 @@ void My_NeighborListCal_RadixSort_multipleBox(int NClusters, int NBox, int **IDS
 	cudaEventDestroy(StopEvent);
 
 }
-
-//void My_NeighborListCal_ArbitrayBitonicSort(int NClusters, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
-//	dim3 threads;
-//	dim3 blocks;
-//	int NB;
-//	cudaError err;
-//	int noone;
-//
-//	cudaEvent_t StartEvent;
-//	cudaEvent_t StopEvent;
-//
-//	cudaEventCreate(&StartEvent);
-//	cudaEventCreate(&StopEvent);
-//
-//	cudaEventRecord(StartEvent, 0);
-//
-//	thrust::device_ptr<double> Device_thrust_Key(ToSortDev_ClustersPosX);
-//	thrust::device_ptr<int> Device_thrust_Value(SortedIndex);
-//
-//	NB = (NClusters - 1) / BLOCKSIZE + 1;
-//
-//	blocks = dim3(NB, 1, 1);
-//	threads = dim3(BLOCKSIZE, 1, 1);
-//	thrust::sort_by_key(Device_thrust_Key, Device_thrust_Key + NClusters, Device_thrust_Value);
-//
-//	Kernel_MyNeighborListCal << < blocks, threads >> > (NClusters, Dev_ClustersPosXYZ, SortedIndex, Dev_NNearestNeighbor);
-//
-//	cudaDeviceSynchronize();
-//
-//	cudaEventRecord(StopEvent, 0);
-//
-//	cudaEventSynchronize(StopEvent);
-//
-//	cudaEventElapsedTime(&timerMyMethod, StartEvent, StopEvent);
-//
-//	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
-//
-//	cudaEventDestroy(StartEvent);
-//	cudaEventDestroy(StopEvent);
-//
-//}
 
 
 void Common_NeighborListCal_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerCommonGPU) {

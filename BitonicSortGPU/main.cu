@@ -622,7 +622,6 @@ int main(int argc, char** argv) {
 	int *SortedIndex_Dev;
 	int *SortedIndex_Host;
 	int *Dev_NNearestNeighbor;
-	int *Host_TestArrayOut_MyMehtod_RadixSort;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort;
 	int *Host_TestArrayOut_Norm;
 	int *Host_TestArrayOut_CPU;
@@ -666,7 +665,6 @@ int main(int argc, char** argv) {
 			Host_IDStartEnd = new int*[NBox];
 			Addr_HostRecordDev_StartEndID = new int*[NBox];
 
-			Host_TestArrayOut_MyMehtod_RadixSort = new int[NSize];
 			Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort = new int[NSize];
 			Host_TestArrayOut_Norm = new int[NSize];
 			Host_TestArrayOut_CPU = new int[NSize];
@@ -740,13 +738,13 @@ int main(int argc, char** argv) {
 			}
 
 
-			//std::cout << "************My Method radixSort************" << std::endl;
+			std::cout << "************My Method Arbitaru bitinic sort************" << std::endl;
 
-			//My_NeighborListCal_RadixSort_multipleBox(NSize,NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX, Dev_TestArrayIn, SortedIndex_Dev, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_RadixSort, timerMyMethod);
+			My_NeighborListCal_ArbitrayBitonicSort_multipleBox(NSize,NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX, Dev_TestArrayIn, SortedIndex_Dev, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort, timerMyMethod);
 
-			//totalTimerMyMethod = totalTimerMyMethod + timerMyMethod;
+			totalTimerMyMethod = totalTimerMyMethod + timerMyMethod;
 
-			//std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod << " for My Method: " << NSize << std::endl;
+			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod << " for My Method: " << NSize << std::endl;
 
 			std::cout << "************Method Common GPU************" << std::endl;
 
@@ -760,26 +758,26 @@ int main(int argc, char** argv) {
 
 			Common_NeighborListCal_CPU_multipleBox(NSize, NBox, Host_IDStartEnd, Host_TestArrayIn, Host_TestArrayOut_CPU);
 
-			/*
+			
 			//Verify
 			for (int i = 0; i < NSize; i++) {
-				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_MyMehtod_RadixSort[i]) {
+				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort[i]) {
 					std::cout << "It is wrong for index: " << i << std::endl;
 					std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
-					std::cout << "My neighbor-list calculation result is: " << Host_TestArrayOut_MyMehtod_RadixSort[i] << std::endl;
+					std::cout << "My neighbor-list calculation result is: " << Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort[i] << std::endl;
 
 					std::cout << "  Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
 						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
 						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
 
-					std::cout << "My neighbor-list calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0]) +
-						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1]) +
-						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2]) << std::endl;
+					std::cout << "My neighbor-list calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort[i]][2]) << std::endl;
 
 					std::cin >> noone;
 				}
 			}
-			*/
+			
 
 			//Verify
 			for (int i = 0; i < NSize; i++) {
