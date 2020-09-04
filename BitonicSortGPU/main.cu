@@ -431,30 +431,37 @@ int main33(int argc, char** argv) {
 }
 
 
-int main3(int argc, char** argv) {
+int main(int argc, char** argv) {
 	int NSize;
 	double **Host_TestArrayIn;
 	double *Host_TestArrayIn_X;
 	double **Dev_TestArrayIn;
-	double *Dev_TestArrayIn_SotedX;
+	double *Dev_TestArrayIn_SotedX_Shared;
+	double *Dev_TestArrayIn_SotedX_noShared;
 	double *TestArray_Dev_OneDim;
 	double **Addr_HostRecordDev;
-	int *SortedIndex_Dev;
+	int *SortedIndex_Dev_Shared;
+	int *SortedIndex_Dev_noShared;
 	int *SortedIndex_Host;
 	int *Dev_NNearestNeighbor;
-	int *Host_TestArrayOut_MyMehtod_RadixSort;
+	int *Host_TestArrayOut_MyMehtod_RadixSort_Shared;
+	int *Host_TestArrayOut_MyMehtod_RadixSort_noShared;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort;
 	int *Host_TestArrayOut_Norm;
 	int *Host_TestArrayOut_CPU;
 	int currentDevice;
 	int noone;
-	float totalTimerMyMethod;
-	float timerMyMethod;
+	float totalTimerMyMethod_Shared;
+	float timerMyMethod_Shared;
+	float totalTimerMyMethod_noShared;
+	float timerMyMethod_noShared;
 	float totalTimerCommonGPU;
 	float timerCommonGPU;
 
-	totalTimerMyMethod = 0.E0;
-	timerMyMethod = 0.E0;
+	totalTimerMyMethod_Shared = 0.E0;
+	timerMyMethod_Shared = 0.E0;
+	totalTimerMyMethod_noShared = 0.E0;
+	timerMyMethod_noShared = 0.E0;
 	totalTimerCommonGPU = 0.E0;
 	timerCommonGPU = 0.E0;
 
@@ -475,7 +482,8 @@ int main3(int argc, char** argv) {
 			Host_TestArrayIn = new double*[NSize];
 			Addr_HostRecordDev = new double*[NSize];
 
-			Host_TestArrayOut_MyMehtod_RadixSort = new int[NSize];
+			Host_TestArrayOut_MyMehtod_RadixSort_Shared = new int[NSize];
+			Host_TestArrayOut_MyMehtod_RadixSort_noShared = new int[NSize];
 			Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort = new int[NSize];
 			Host_TestArrayOut_Norm = new int[NSize];
 			Host_TestArrayOut_CPU = new int[NSize];
@@ -497,10 +505,12 @@ int main3(int argc, char** argv) {
 			}
 
 			err = cudaMalloc((void**)&Dev_TestArrayIn, NSize * sizeof(double*));
-			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX, NSize * sizeof(double));
+			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_Shared, NSize * sizeof(double));
+			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_noShared, NSize * sizeof(double));
 
 
-			err = cudaMalloc((void**)&SortedIndex_Dev, NSize * sizeof(int));
+			err = cudaMalloc((void**)&SortedIndex_Dev_Shared, NSize * sizeof(int));
+			err = cudaMalloc((void**)&SortedIndex_Dev_noShared, NSize * sizeof(int));
 			err = cudaMalloc((void**)&Dev_NNearestNeighbor, NSize * sizeof(int));
 
 			for (int i = 0; i < NSize; i++) {
@@ -514,9 +524,10 @@ int main3(int argc, char** argv) {
 			cudaMemcpy(Dev_TestArrayIn, Addr_HostRecordDev, NSize * sizeof(double*), cudaMemcpyHostToDevice);
 
 
-			err = cudaMemcpy(Dev_TestArrayIn_SotedX,Host_TestArrayIn_X,NSize*sizeof(double), cudaMemcpyHostToDevice);
-			err = cudaMemcpy(SortedIndex_Dev, SortedIndex_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
-
+			err = cudaMemcpy(Dev_TestArrayIn_SotedX_Shared,Host_TestArrayIn_X,NSize*sizeof(double), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(Dev_TestArrayIn_SotedX_noShared, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(SortedIndex_Dev_Shared, SortedIndex_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(SortedIndex_Dev_noShared, SortedIndex_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 
 			if (cudaSuccess != err) {
 				std::cout << "Error occour when copy  Dev_TestArrayIn_SotedX" << std::endl;
@@ -527,13 +538,21 @@ int main3(int argc, char** argv) {
 			}
 
 
-			std::cout << "************My Method radixSort************" << std::endl;
+			std::cout << "************My Method radixSort shared************" << std::endl;
 
-			My_NeighborListCal_RadixSort(NSize, Dev_TestArrayIn_SotedX, Dev_TestArrayIn, SortedIndex_Dev, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_RadixSort, timerMyMethod);
+			My_NeighborListCal_RadixSort_Shared(NSize, Dev_TestArrayIn_SotedX_Shared, Dev_TestArrayIn, SortedIndex_Dev_Shared, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_RadixSort_Shared, timerMyMethod_Shared);
 
-			totalTimerMyMethod = totalTimerMyMethod + timerMyMethod;
+			totalTimerMyMethod_Shared = totalTimerMyMethod_Shared + timerMyMethod_Shared;
 
-			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod << " for My Method: " << NSize << std::endl;
+			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod_Shared << " for My Method shared: " << NSize << std::endl;
+
+			std::cout << "************My Method radixSort no shared************" << std::endl;
+
+			My_NeighborListCal_RadixSort_noShared(NSize, Dev_TestArrayIn_SotedX_noShared, Dev_TestArrayIn, SortedIndex_Dev_noShared, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_RadixSort_noShared, timerMyMethod_noShared);
+
+			totalTimerMyMethod_noShared = totalTimerMyMethod_noShared + timerMyMethod_noShared;
+
+			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod_noShared << " for My Method no shared: " << NSize << std::endl;
 
 			std::cout << "************Method Common GPU************" << std::endl;
 
@@ -543,7 +562,7 @@ int main3(int argc, char** argv) {
 
 			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerCommonGPU << " for Common GPU: " << NSize << std::endl;
 
-			std::cout << "************Method Common CPU************" << std::endl;
+			//std::cout << "************Method Common CPU************" << std::endl;
 
 			//Common_NeighborListCal_CPU(NSize, Host_TestArrayIn, Host_TestArrayOut_CPU);
 
@@ -570,10 +589,10 @@ int main3(int argc, char** argv) {
 
 			//Verify
 			for (int i = 0; i < NSize; i++) {
-				if (Host_TestArrayOut_Norm[i] != Host_TestArrayOut_MyMehtod_RadixSort[i]) {
+				if (Host_TestArrayOut_Norm[i] != Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]) {
 					std::cout << "It is wrong for index: " << i << std::endl;
 					std::cout << "The common GPU neighbor-list result is: " << Host_TestArrayOut_Norm[i] << std::endl;
-					std::cout << "My neighbor-list calculation result is: " << Host_TestArrayOut_MyMehtod_RadixSort[i] << std::endl;
+					std::cout << "My neighbor-list calculation shared result is: " << Host_TestArrayOut_MyMehtod_RadixSort_Shared[i] << std::endl;
 
 					std::cout <<"  Distance normal GPU: "<< (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0]) +
 						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1]) +
@@ -583,12 +602,40 @@ int main3(int argc, char** argv) {
 					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
 					std::cout << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2] << std::endl;
 
-					std::cout << "My neighbor-list calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0]) +
-						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1]) +
-						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2]) << std::endl;
+					std::cout << "My neighbor-list shared calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]][2]) << std::endl;
 
 					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
-					std::cout << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort[i]][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_Shared[i]][2] << std::endl;
+
+
+					std::cin >> noone;
+				}
+			}
+
+
+			//Verify
+			for (int i = 0; i < NSize; i++) {
+				if (Host_TestArrayOut_Norm[i] != Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]) {
+					std::cout << "It is wrong for index: " << i << std::endl;
+					std::cout << "The common GPU neighbor-list result is: " << Host_TestArrayOut_Norm[i] << std::endl;
+					std::cout << "My neighbor-list calculation  no shared result is: " << Host_TestArrayOut_MyMehtod_RadixSort_noShared[i] << std::endl;
+
+					std::cout << "  Distance normal GPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2]) << std::endl;
+
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2] << std::endl;
+
+					std::cout << "My neighbor-list no shared calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]][2]) << std::endl;
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_RadixSort_noShared[i]][2] << std::endl;
 
 
 					std::cin >> noone;
@@ -600,7 +647,9 @@ int main3(int argc, char** argv) {
 	}
 
 
-	std::cout << "The total elapse time for my method is (ms) : " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << totalTimerMyMethod << std::endl;
+	std::cout << "The total elapse time for my method shared is (ms) : " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << totalTimerMyMethod_Shared << std::endl;
+
+	std::cout << "The total elapse time for my method no shared is (ms) : " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << totalTimerMyMethod_noShared << std::endl;
 
 	std::cout << "The total elapse time for Common GPU (ms) : " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << totalTimerCommonGPU << std::endl;
 
@@ -611,7 +660,7 @@ int main3(int argc, char** argv) {
 }
 
 
-int main(int argc, char** argv) {
+int main3(int argc, char** argv) {
 	int NSize;
 	double **Host_TestArrayIn;
 	double *Host_TestArrayIn_X;

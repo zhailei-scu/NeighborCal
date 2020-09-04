@@ -15,7 +15,7 @@
 
 #define BLOCKSIZE 512
 
-__global__ void Kernel_MyNeighborListCal(int NClusters, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor) {
+__global__ void Kernel_MyNeighborListCal_Shared(int NClusters, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int cid = bid * BLOCKSIZE + tid;
@@ -209,6 +209,87 @@ __global__ void Kernel_MyNeighborListCal(int NClusters, double** Dev_ClustersPos
 }
 
 
+__global__ void Kernel_MyNeighborListCal_noShared(int NClusters, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * BLOCKSIZE + tid;
+	double Pos_X;
+	double Pos_Y;
+	double Pos_Z;
+	int MappedJC;
+	double distance;
+	double minDistance;
+	double distanceX;
+	double distanceY;
+	double distanceZ;
+	int NNID;
+	int MapedIdex;
+
+	minDistance = 1.E32;
+
+	if (cid < NClusters) {
+
+		MapedIdex = SortedIndex[cid];
+
+		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
+		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
+		Pos_Z = Dev_ClustersPosXYZ[MapedIdex][2];
+
+		/*Right Hand Searching*/
+		for (int JC = cid + 1; JC <NClusters; JC++) {
+
+			MappedJC = SortedIndex[JC];
+
+			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+			distanceX = distanceX * distanceX;
+			distanceY = distanceY * distanceY;
+			distanceZ = distanceZ * distanceZ;
+
+			distance = distanceX + distanceY + distanceZ;
+
+			if (minDistance > distance) {
+				minDistance = distance;
+				NNID = MappedJC;
+			}
+
+			if (distanceX > minDistance) {
+				break;
+			}
+		}
+
+		/*Left Hand Searching*/
+		for (int JC = cid - 1; JC >= 0; JC--) {
+
+			MappedJC = SortedIndex[JC];
+
+			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+			distanceX = distanceX * distanceX;
+			distanceY = distanceY * distanceY;
+			distanceZ = distanceZ * distanceZ;
+
+			distance = distanceX + distanceY + distanceZ;
+
+			if (minDistance > distance) {
+				minDistance = distance;
+				NNID = MappedJC;
+			}
+
+			if (distanceX > minDistance) {
+				break;
+			}
+		}
+
+		Dev_NNearestNeighbor[MapedIdex] = NNID;
+	}
+}
+
+
 
 __global__ void Kernel_NormalCalcNeighborList(int NClusters, double** Dev_ClustersPosXYZ, int* Dev_NNearestNeighbor) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
@@ -290,7 +371,7 @@ __global__ void Kernel_NormalCalcNeighborList(int NClusters, double** Dev_Cluste
 
 
 
-void My_NeighborListCal_RadixSort(int NClusters, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor,int* Host_NNearestNeighbor,float &timerMyMethod) {
+void My_NeighborListCal_RadixSort_Shared(int NClusters, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor,int* Host_NNearestNeighbor,float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
@@ -314,7 +395,7 @@ void My_NeighborListCal_RadixSort(int NClusters, double* ToSortDev_ClustersPosX,
 	threads = dim3(BLOCKSIZE, 1, 1);
 	thrust::sort_by_key(Device_thrust_Key, Device_thrust_Key + NClusters, Device_thrust_Value);
 
-	Kernel_MyNeighborListCal << < blocks, threads >> > (NClusters, Dev_ClustersPosXYZ, SortedIndex,Dev_NNearestNeighbor);
+	Kernel_MyNeighborListCal_Shared << < blocks, threads >> > (NClusters, Dev_ClustersPosXYZ, SortedIndex,Dev_NNearestNeighbor);
 
 	cudaDeviceSynchronize();
 
@@ -325,6 +406,48 @@ void My_NeighborListCal_RadixSort(int NClusters, double* ToSortDev_ClustersPosX,
 	cudaEventElapsedTime(&timerMyMethod,StartEvent,StopEvent);
 
 	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor,NClusters*sizeof(int),cudaMemcpyDeviceToHost);
+
+	cudaEventDestroy(StartEvent);
+	cudaEventDestroy(StopEvent);
+
+}
+
+
+void My_NeighborListCal_RadixSort_noShared(int NClusters, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+	dim3 threads;
+	dim3 blocks;
+	int NB;
+	cudaError err;
+	int noone;
+
+	cudaEvent_t StartEvent;
+	cudaEvent_t StopEvent;
+
+	cudaEventCreate(&StartEvent);
+	cudaEventCreate(&StopEvent);
+
+	cudaEventRecord(StartEvent, 0);
+
+	thrust::device_ptr<double> Device_thrust_Key(ToSortDev_ClustersPosX);
+	thrust::device_ptr<int> Device_thrust_Value(SortedIndex);
+
+	NB = (NClusters - 1) / BLOCKSIZE + 1;
+
+	blocks = dim3(NB, 1, 1);
+	threads = dim3(BLOCKSIZE, 1, 1);
+	thrust::sort_by_key(Device_thrust_Key, Device_thrust_Key + NClusters, Device_thrust_Value);
+
+	Kernel_MyNeighborListCal_noShared << < blocks, threads >> > (NClusters, Dev_ClustersPosXYZ, SortedIndex, Dev_NNearestNeighbor);
+
+	cudaDeviceSynchronize();
+
+	cudaEventRecord(StopEvent, 0);
+
+	cudaEventSynchronize(StopEvent);
+
+	cudaEventElapsedTime(&timerMyMethod, StartEvent, StopEvent);
+
+	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
 
 	cudaEventDestroy(StartEvent);
 	cudaEventDestroy(StopEvent);
