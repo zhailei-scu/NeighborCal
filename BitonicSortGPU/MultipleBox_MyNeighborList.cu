@@ -227,8 +227,98 @@ __global__ void Kernel_MyNeighborListCal_multipleBox(int BlockNumEachBox, int **
 
 }
 
-bool myCompare(double A,double B) {
-	return (A < B);
+__global__ void Kernel_MyNeighborListCal_multipleBox_noshare(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * BLOCKSIZE + tid;
+	double Pos_X;
+	double Pos_Y;
+	double Pos_Z;
+	int MappedJC;
+	double distance;
+	double minDistance;
+	double distanceX;
+	double distanceY;
+	double distanceZ;
+	int NNID;
+	int MapedIdex;
+	int IBox;
+	int scid;
+	int ecid;
+	int bid0;
+	int IC;
+
+	IBox = bid / BlockNumEachBox;
+
+	scid = IDStartEnd_Dev[IBox][0];
+	ecid = IDStartEnd_Dev[IBox][1];
+
+	bid0 = IBox * BlockNumEachBox;
+
+	IC = scid + (cid - bid0 * BLOCKSIZE);
+
+	minDistance = 1.E32;
+
+	if (IC <= ecid) {
+
+		MapedIdex = SortedIndex[IC];
+
+		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
+		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
+		Pos_Z = Dev_ClustersPosXYZ[MapedIdex][2];
+
+		/*Right Hand Searching*/
+		for (int JC = IC + 1; JC <= ecid; JC++) {
+
+			MappedJC = SortedIndex[JC];
+
+			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+			distanceX = distanceX * distanceX;
+			distanceY = distanceY * distanceY;
+			distanceZ = distanceZ * distanceZ;
+
+			distance = distanceX + distanceY + distanceZ;
+
+			if (minDistance > distance) {
+				minDistance = distance;
+				NNID = MappedJC;
+			}
+
+			if (distanceX > minDistance) {
+				break;
+			}
+		}
+
+		/*Left Hand Searching*/
+		for (int JC = IC - 1; JC >= scid; JC--) {
+
+			MappedJC = SortedIndex[JC];
+
+			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+			distanceX = distanceX * distanceX;
+			distanceY = distanceY * distanceY;
+			distanceZ = distanceZ * distanceZ;
+
+			distance = distanceX + distanceY + distanceZ;
+
+			if (minDistance > distance) {
+				minDistance = distance;
+				NNID = MappedJC;
+			}
+
+			if (distanceX > minDistance) {
+				break;
+			}
+		}
+
+		Dev_NNearestNeighbor[MapedIdex] = NNID;
+	}
 }
 
 bool myCompare2(std::pair<double,int> A, std::pair<double, int> B) {
@@ -276,7 +366,6 @@ void SimpleSort_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, doub
 	cudaMemcpy(SortedIndex_Dev,SortedIndex_Host,NClusters * sizeof(int), cudaMemcpyHostToDevice);
 
 }
-
 
 
 __global__ void Kernel_NormalCalcNeighborList_multipleBox(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* Dev_NNearestNeighbor) {
@@ -372,7 +461,7 @@ __global__ void Kernel_NormalCalcNeighborList_multipleBox(int BlockNumEachBox, i
 }
 
 
-void My_NeighborListCal_ArbitrayBitonicSort_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+void My_NeighborListCal_ArbitrayBitonicSort_multipleBox_Shared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
@@ -407,6 +496,57 @@ void My_NeighborListCal_ArbitrayBitonicSort_multipleBox(int NClusters, int NBox,
 	cudaEventRecord(StartEvent, 0);
 
 	Kernel_MyNeighborListCal_multipleBox << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndex, Dev_NNearestNeighbor);
+
+	cudaDeviceSynchronize();
+
+	cudaEventRecord(StopEvent, 0);
+
+	cudaEventSynchronize(StopEvent);
+
+	cudaEventElapsedTime(&timerMyMethod, StartEvent, StopEvent);
+
+	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+
+	cudaEventDestroy(StartEvent);
+	cudaEventDestroy(StopEvent);
+
+}
+
+void My_NeighborListCal_ArbitrayBitonicSort_multipleBox_noShared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndex, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+	dim3 threads;
+	dim3 blocks;
+	int NB;
+	cudaError err;
+	int noone;
+	int BlockNumEachBox;
+	int BlockNumEachBoxtemp;
+
+	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndex);
+
+	cudaEvent_t StartEvent;
+	cudaEvent_t StopEvent;
+
+	BlockNumEachBox = 0;
+
+	for (int i = 0; i < NBox; i++) {
+		BlockNumEachBoxtemp = (IDStartEnd_Host[i][1] - IDStartEnd_Host[i][0]) / BLOCKSIZE + 1;
+
+		if (BlockNumEachBox < BlockNumEachBoxtemp) BlockNumEachBox = BlockNumEachBoxtemp;
+	}
+
+	NB = BlockNumEachBox * NBox;
+
+	blocks = dim3(NB, 1, 1);
+	threads = dim3(BLOCKSIZE, 1, 1);
+
+	cudaDeviceSynchronize();
+
+	cudaEventCreate(&StartEvent);
+	cudaEventCreate(&StopEvent);
+
+	cudaEventRecord(StartEvent, 0);
+
+	Kernel_MyNeighborListCal_multipleBox_noshare << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndex, Dev_NNearestNeighbor);
 
 	cudaDeviceSynchronize();
 
