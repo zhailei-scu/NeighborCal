@@ -239,7 +239,9 @@ bool myCompare2(std::pair<double,int> A, std::pair<double, int> B) {
 void SimpleSort_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, double* ToSortDev_ClustersPosX,int* SortedIndex_Dev) {
 	double* ToSortHost_ClustersPosX;
 	int* SortedIndex_Host;
-	std::map<double, int> theMap;
+	std::vector<std::pair<double, int>> OneBox;
+
+	std::pair<double, int> thePair;
 
 	ToSortHost_ClustersPosX = new double[NClusters];
 	SortedIndex_Host = new int[NClusters];
@@ -250,27 +252,25 @@ void SimpleSort_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, doub
 
 	for (int IBox = 0; IBox < NBox; IBox++) {
 
-		theMap.clear();
-		std::map<double, int>().swap(theMap);
+		OneBox.clear();
+
+		std::vector<std::pair<double, int>>().swap(OneBox);
 
 		for (int i = IDStartEnd_Host[IBox][0]; i <= IDStartEnd_Host[IBox][1]; i++) {
-			theMap.insert(std::map<double, int>::value_type(ToSortHost_ClustersPosX[i], SortedIndex_Host[i]));
+			thePair.first = ToSortHost_ClustersPosX[i];
+			thePair.second = SortedIndex_Host[i];
+			OneBox.push_back(thePair);
 		}
-
-		std::vector<std::pair<double, int>> OneBox(theMap.begin(), theMap.end());
 
 		std::sort(OneBox.begin(), OneBox.end(), myCompare2);
 
 		std::vector<std::pair<double, int>>::iterator ptr = OneBox.begin();
+
 		for (int i = IDStartEnd_Host[IBox][0]; i <= IDStartEnd_Host[IBox][1]; i++) {
 			SortedIndex_Host[i] = (*ptr).second;
 
 			ptr++;
 		}
-
-		OneBox.clear();
-
-		std::vector<std::pair<double, int>>().swap(OneBox);
 	}
 
 	cudaMemcpy(SortedIndex_Dev,SortedIndex_Host,NClusters * sizeof(int), cudaMemcpyHostToDevice);
@@ -381,13 +381,10 @@ void My_NeighborListCal_ArbitrayBitonicSort_multipleBox(int NClusters, int NBox,
 	int BlockNumEachBox;
 	int BlockNumEachBoxtemp;
 
+	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndex);
+
 	cudaEvent_t StartEvent;
 	cudaEvent_t StopEvent;
-
-	cudaEventCreate(&StartEvent);
-	cudaEventCreate(&StopEvent);
-
-	cudaEventRecord(StartEvent, 0);
 
 	BlockNumEachBox = 0;
 
@@ -402,10 +399,12 @@ void My_NeighborListCal_ArbitrayBitonicSort_multipleBox(int NClusters, int NBox,
 	blocks = dim3(NB, 1, 1);
 	threads = dim3(BLOCKSIZE, 1, 1);
 
-	//thrust::sort_by_key(Device_thrust_Key, Device_thrust_Key + NClusters, Device_thrust_Value);
+	cudaDeviceSynchronize();
 
+	cudaEventCreate(&StartEvent);
+	cudaEventCreate(&StopEvent);
 
-	SimpleSort_multipleBox(NClusters,NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndex);
+	cudaEventRecord(StartEvent, 0);
 
 	Kernel_MyNeighborListCal_multipleBox << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndex, Dev_NNearestNeighbor);
 

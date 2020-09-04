@@ -686,7 +686,6 @@ int main(int argc, char** argv) {
 			}
 
 
-
 			err = cudaMalloc((void**)&Dev_IDStartEnd,NBox*sizeof(int*));
 			for (int i = 0; i < NBox; i++) {
 				Host_IDStartEnd[i] = new int[2];
