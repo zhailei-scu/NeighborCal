@@ -148,7 +148,7 @@ int main_wait(int argc, char** argv) {
 }
 
 
-int main33(int argc, char** argv) {
+int main_SortCompare(int argc, char** argv) {
 	int NSize;
 	double *Host_TestArrayIn;
 	double *Host_TestArrayOut;
@@ -431,7 +431,7 @@ int main33(int argc, char** argv) {
 }
 
 
-int main3(int argc, char** argv) {
+int main_SingleBoxNeighborCal(int argc, char** argv) {
 	int NSize;
 	double **Host_TestArrayIn;
 	double *Host_TestArrayIn_X;
@@ -660,6 +660,7 @@ int main3(int argc, char** argv) {
 }
 
 
+//int main_MultipleBoxNeighborCal(int argc, char** argv) {
 int main(int argc, char** argv) {
 	int NSize;
 	double **Host_TestArrayIn;
