@@ -27,269 +27,6 @@ inline void Comparetor_Host_toApply(double &ValA, double &ValB, int dir) {
 	}
 }
 
-
-/*Used For Array Size less than BLOCKSIZE And is of power 2*/
-__global__ void Kernel_PowerTowShared_toApply(int NSize, double* Dev_TestArray, int dir) {
-	int tid = threadIdx.y*blockDim.x + threadIdx.x;
-	int bid = blockIdx.y*gridDim.x + blockIdx.x;
-	int cid = bid * BLOCKSIZE_TOAPPLY + tid;
-	int tempDir;
-	int pos;
-	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
-
-	Share_TestArray[tid] = 0.E0;
-	if (cid < NSize) {
-		Share_TestArray[tid] = Dev_TestArray[cid];
-	}
-
-	Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = 0.E0;
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2];
-	}
-
-	for (int i = 2; i < NSize; i <<= 1) {
-
-		tempDir = dir ^ ((cid & (i / 2)) != 0);
-
-
-		for (int stride = i / 2; stride > 0; stride >>= 1) {
-
-			__syncthreads();
-
-			pos = 2 * cid - (cid & (stride - 1));
-
-			if ((pos + stride) < NSize) {
-				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
-			}
-
-		}
-	}
-
-	for (int stride = NSize; stride > 0; stride >>= 1) {
-		__syncthreads();
-
-		pos = 2 * cid - (cid & (stride - 1));
-
-		if ((pos + stride) < NSize) {
-			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], dir);
-		}
-
-	}
-
-	__syncthreads();
-
-	if (cid < NSize) {
-		Dev_TestArray[cid] = Share_TestArray[tid];
-	}
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
-	}
-}
-
-
-__global__ void Kernel_ArbitraryBitonicSort_toApply(int NSize, double* Dev_TestArray, int dir) {
-	int tid = threadIdx.y*blockDim.x + threadIdx.x;
-	int bid = blockIdx.y*gridDim.x + blockIdx.x;
-	int cid = bid * BLOCKSIZE_TOAPPLY + tid;
-	int tempDir;
-	int pos;
-	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
-
-	Share_TestArray[tid] = 0.E0;
-	if (cid < NSize) {
-		Share_TestArray[tid] = Dev_TestArray[cid];
-	}
-
-	Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = 0.E0;
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2];
-	}
-
-	int NThreadUpHalf = NSize / 2;
-
-	int IDRelative = cid % NThreadUpHalf;
-
-	int IDStart = NThreadUpHalf * (cid / NThreadUpHalf);
-
-	int IDEnd = NThreadUpHalf + (cid / NThreadUpHalf)*(NSize - NThreadUpHalf);
-
-	int FirstGreater = (NThreadUpHalf - 1) << 1;
-
-	//for (int i = 2; i < NThreadUpHalf; i <<= 1) {
-	for (int i = 2; i <= 16; i <<= 1) {
-		//for (int i = 2; i <= FirstGreater; i <<= 1) {
-
-		tempDir = (cid / NThreadUpHalf) ^ (dir ^ ((IDRelative & (i / 2)) != 0));
-
-		//if (i > NThreadUpHalf) {
-		//	IDStart = IDStart + NThreadUpHalf - i/2;
-		//}
-
-		//if (i > NThreadUpHalf) {
-		//	IDStart = IDStart + IDEnd - IDStart - i / 2;
-		//}
-
-		for (int stride = i / 2; stride > 0; stride >>= 1) {
-
-			__syncthreads();
-
-			if (i > NThreadUpHalf && stride < i / 2) {
-				IDStart = IDStart + IDEnd - IDStart - i / 2;
-			}
-
-			//if (i > NThreadUpHalf) {
-			//	IDStart = IDStart + IDEnd - IDStart - i / 2;
-			//}
-
-			pos = IDStart + 2 * IDRelative - (IDRelative & (stride - 1));
-
-			if ((pos + stride) < IDEnd) {
-				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
-			}
-
-		}
-	}
-
-	/*
-	for (int stride = 9; stride > 0; stride = stride/2) {
-		__syncthreads();
-
-		//pos = IDStart + 2 * IDRelative - (IDRelative & (stride - 1));
-
-		if ((cid + stride) < NSize) {
-			Comparetor(Share_TestArray[cid], Share_TestArray[cid + stride], dir);
-		}
-
-	}
-	*/
-
-
-
-	/*
-	for (int stride = NThreadUpHalf; stride > 0; stride >>= 1) {
-		__syncthreads();
-
-		pos = IDStart + 2 * IDRelative - (IDRelative & (stride - 1));
-
-		if ((pos + stride) < IDEnd) {
-			Comparetor(Share_TestArray[pos], Share_TestArray[pos + stride], dir);
-		}
-
-	}
-	*/
-
-
-
-
-	__syncthreads();
-
-	if (cid < NSize) {
-		Dev_TestArray[cid] = Share_TestArray[tid];
-	}
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
-	}
-}
-
-__global__ void Kernel_ArbitraryBitonicSort2_toApply(int NSize, double* Dev_TestArray, int dir) {
-	int tid = threadIdx.y*blockDim.x + threadIdx.x;
-	int bid = blockIdx.y*gridDim.x + blockIdx.x;
-	int cid = bid * BLOCKSIZE_TOAPPLY + tid;
-	int tempDir;
-	int pos;
-	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
-
-	Share_TestArray[tid] = 0.E0;
-	if (cid < NSize) {
-		Share_TestArray[tid] = Dev_TestArray[cid];
-	}
-
-	Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = 0.E0;
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2];
-	}
-
-	for (int i = 2; i < NSize; i <<= 1) {
-
-		tempDir = dir ^ ((cid & (i / 2)) != 0);
-
-
-		for (int stride = i / 2; stride > 0; stride >>= 1) {
-
-			__syncthreads();
-
-			pos = 2 * cid - (cid & (stride - 1));
-
-			if ((pos + stride) < NSize) {
-				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
-			}
-
-		}
-	}
-
-	/*
-	int IDStart = 0;
-
-	//for (int i = 2; i < NThreadUpHalf; i <<= 1) {
-	for (int i = 32; i <=32; i <<= 1) {
-		//for (int i = 2; i <= FirstGreater; i <<= 1) {
-
-		tempDir = (dir ^ ((cid & (i / 2)) != 0));
-
-		//if (i > NThreadUpHalf) {
-		//	IDStart = IDStart + NThreadUpHalf - i/2;
-		//}
-
-		//if (i > NThreadUpHalf) {
-		//	IDStart = IDStart + IDEnd - IDStart - i / 2;
-		//}
-
-		for (int stride = i / 2; stride >= i/2; stride >>= 1) {
-
-			__syncthreads();
-
-			if (stride < i / 2) {
-				IDStart = NSize - i/2 - 1;
-			}
-
-			//if (i > NThreadUpHalf) {
-			//	IDStart = IDStart + IDEnd - IDStart - i / 2;
-			//}
-
-			pos = IDStart + 2 * cid - (cid & (stride - 1));
-
-			if ((pos + stride) < NSize) {
-				Comparetor(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
-			}
-
-		}
-	}
-
-
-
-	/*
-	for (int stride = NSize; stride > 0; stride >>= 1) {
-		__syncthreads();
-
-		pos = 2 * cid - (cid & (stride - 1));
-
-		if ((pos + stride) < NSize) {
-			Comparetor(Share_TestArray[pos], Share_TestArray[pos + stride], dir);
-		}
-
-	}*/
-
-	__syncthreads();
-
-	if (cid < NSize) {
-		Dev_TestArray[cid] = Share_TestArray[tid];
-	}
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
-	}
-}
-
-
 __device__ int FirstGreaterPower2_toApply(int NSize) {
 	int result;
 
@@ -317,116 +54,6 @@ __device__ int GetIDStart_toApply(int NSize, int Stride, int cid) {
 
 	return result;
 }
-
-__global__ void Kernel_ArbitraryBitonicSort3_toApply(int NSize, double* Dev_TestArray, int dir) {
-	int tid = threadIdx.y*blockDim.x + threadIdx.x;
-	int bid = blockIdx.y*gridDim.x + blockIdx.x;
-	int cid = bid * BLOCKSIZE_TOAPPLY + tid;
-	int tempDir;
-	int pos;
-	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
-
-	Share_TestArray[tid] = 0.E0;
-	if (cid < NSize) {
-		Share_TestArray[tid] = Dev_TestArray[cid];
-	}
-
-	Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = 0.E0;
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2];
-	}
-
-	int NThreadUpHalf = NSize / 2;
-
-	int IDRelative = cid % NThreadUpHalf;
-
-	int IDStart = NThreadUpHalf * (cid / NThreadUpHalf);
-
-	int IDEnd = NThreadUpHalf + (cid / NThreadUpHalf)*(NSize - NThreadUpHalf);
-
-	int FirstGreater = (NThreadUpHalf - 1) << 1;
-
-	//for (int i = 2; i < NThreadUpHalf; i <<= 1) {
-	for (int i = 2; i <= 8; i <<= 1) {
-		//for (int i = 2; i <= FirstGreater; i <<= 1) {
-
-		tempDir = (cid / NThreadUpHalf) ^ (dir ^ ((IDRelative & (i / 2)) != 0));
-
-
-
-
-
-
-		//if (i > NThreadUpHalf) {
-		//	IDStart = IDStart + NThreadUpHalf - i/2;
-		//}
-
-		//if (i > NThreadUpHalf) {
-		//	IDStart = IDStart + IDEnd - IDStart - i / 2;
-		//}
-
-		for (int stride = i / 2; stride > 0; stride >>= 1) {
-
-			__syncthreads();
-
-			if (i > NThreadUpHalf && stride < i / 2) {
-				IDStart = IDStart + IDEnd - IDStart - i / 2;
-			}
-
-			//if (i > NThreadUpHalf) {
-			//	IDStart = IDStart + IDEnd - IDStart - i / 2;
-			//}
-
-			pos = IDStart + 2 * IDRelative - (IDRelative & (stride - 1));
-
-			if ((pos + stride) < IDEnd) {
-				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
-			}
-
-		}
-	}
-
-	/*
-	for (int stride = 9; stride > 0; stride = stride/2) {
-		__syncthreads();
-
-		//pos = IDStart + 2 * IDRelative - (IDRelative & (stride - 1));
-
-		if ((cid + stride) < NSize) {
-			Comparetor(Share_TestArray[cid], Share_TestArray[cid + stride], dir);
-		}
-
-	}
-	*/
-
-
-
-	/*
-	for (int stride = NThreadUpHalf; stride > 0; stride >>= 1) {
-		__syncthreads();
-
-		pos = IDStart + 2 * IDRelative - (IDRelative & (stride - 1));
-
-		if ((pos + stride) < IDEnd) {
-			Comparetor(Share_TestArray[pos], Share_TestArray[pos + stride], dir);
-		}
-
-	}
-	*/
-
-
-
-
-	__syncthreads();
-
-	if (cid < NSize) {
-		Dev_TestArray[cid] = Share_TestArray[tid];
-	}
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
-	}
-}
-
 
 /*Used For Array Size less than BLOCKSIZE And is not of power 2*/
 __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(int NSize, double* Dev_TestArray, int dir, double padNum) {
@@ -463,9 +90,7 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(int NSize, double* De
 
 			pos = 2 * cid - (cid & (stride - 1));
 
-			//if ((pos + stride) < NSize) {
 			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
-			//}
 
 		}
 	}
@@ -475,9 +100,7 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(int NSize, double* De
 
 		pos = 2 * cid - (cid & (stride - 1));
 
-		//if ((pos + stride) < NSize) {
 		Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], dir);
-		//}
 
 	}
 
@@ -510,22 +133,12 @@ __global__ void Kernel_GlobalMerge_Pre_toApply(int Size, int SegmentsStride, int
 
 	tempDir = dir ^ ((IDSegStart / Size) & 1);
 
-	//ICLevelStart = IDStartEnd[IDSegStart][0];
-	//ICLevelEnd = IDStartEnd[IDSegEnd][1];
 	ICLevelStart = *(*(IDStartEnd + IDSegStart) + 0);
 	ICLevelEnd = *(*(IDStartEnd + IDSegEnd) + 1);
 
-	//ICLevelRightHalfStart = IDStartEnd[IDSegStart + SegmentsStride][0];
 	ICLevelRightHalfStart = *(*(IDStartEnd + IDSegStart + SegmentsStride) + 0);
 	ICLevelRightHalfEnd = ICLevelEnd;
 
-	//int SegmentsStrideLast = SegmentsStride >> (SegmentsStride == (Size / 2));
-	//int IDSegStartLast = 2*(IDSegMap / (2*SegmentsStrideLast))*SegmentsStrideLast;
-	//int MainDir = dir^(  (IDSegStartLast / (Size / (1 + (SegmentsStride == (Size/2)) )   )) & 1);
-
-	//int SizeChangeFlag = (SegmentsStride == (Size / 2));
-	//int LastStridePeriodicFlag = ((IDSegMap /(SegmentsStride<<1)) & 1) ^ ((IDSegMap /Size) & 1);
-	//int LastDir = (dir ^ ((IDSegMap /(Size>> SizeChangeFlag)) & 1) )^ (LastStridePeriodicFlag & (!SizeChangeFlag));
 	FlagsShift = tempDir ^ (Dev_TestArray[ICLevelRightHalfEnd] >= Dev_TestArray[ICLevelRightHalfStart]);
 
 	OEFlags[IDSegMap] = ((ICLevelEnd - ICLevelStart + 1) % 2 != 0)&FlagsShift;
@@ -555,54 +168,17 @@ __global__ void Kernel_GlobalMerge_toApply(int Size, int SegmentsStride, int Max
 
 	tempDir = dir ^ ((IDSegStart / Size) & 1);
 
-	//ICSegStart = IDStartEnd[IDSegMap][0];
-	//ICSegEnd = IDStartEnd[IDSegMap][1];
 	ICSegStart = *(*(IDStartEnd + IDSegMap) + 0);
 	ICSegEnd = *(*(IDStartEnd + IDSegMap) + 1);
 
 	pos = ICSegStart + tid;
 
-	//ICLevelStart = IDStartEnd[IDSegStart][0];
-	//ICLevelEnd = IDStartEnd[IDSegEnd][1];
 	ICLevelStart = *(*(IDStartEnd + IDSegStart) + 0);
 	ICLevelEnd = *(*(IDStartEnd + IDSegEnd) + 1);
 
-	//ICLevelRightHalfStart = IDStartEnd[IDSegStart + SegmentsStride][0];
-	/*
-	ICLevelRightHalfStart = *(*(IDStartEnd + IDSegStart + SegmentsStride) + 0);
-	ICLevelRightHalfEnd = ICLevelEnd;
-	*/
-
-	//int SegmentsStrideLast = SegmentsStride >> (SegmentsStride == (Size / 2));
-	//int IDSegStartLast = 2*(IDSegMap / (2*SegmentsStrideLast))*SegmentsStrideLast;
-	//int MainDir = dir^(  (IDSegStartLast / (Size / (1 + (SegmentsStride == (Size/2)) )   )) & 1);
-
-	//int SizeChangeFlag = (SegmentsStride == (Size / 2));
-	//int LastStridePeriodicFlag = ((IDSegMap /(SegmentsStride<<1)) & 1) ^ ((IDSegMap /Size) & 1);
-	//int LastDir = (dir ^ ((IDSegMap /(Size>> SizeChangeFlag)) & 1) )^ (LastStridePeriodicFlag & (!SizeChangeFlag));
-	/*
-	FlagsShift = tempDir^(Dev_TestArray[ICLevelRightHalfEnd] >= Dev_TestArray[ICLevelRightHalfStart]);
-
-	OEFlag = ((ICLevelEnd - ICLevelStart + 1)%2 != 0)&FlagsShift;
-	*/
-
 	Stride = (ICLevelEnd - ICLevelStart + 1) / 2 + OEFlags[IDSegMap];
 
-	//Stride = (ICLevelEnd - ICLevelStart + 1) / 2 + Shared_OEFlag;
-
-
 	if (pos <= ICSegEnd && (pos + Stride) <= ICLevelEnd) {
-
-		/*
-		Left = Dev_TestArray[pos];
-		Right = Dev_TestArray[pos + Stride];
-
-		Comparetor(Left, Right, tempDir);
-
-		Dev_TestArray[pos] = Left;
-		Dev_TestArray[pos + Stride] = Right;
-		*/
-
 		Comparetor_toApply(Dev_TestArray[pos], Dev_TestArray[pos + Stride], tempDir);
 	}
 
@@ -651,9 +227,7 @@ __global__ void Kernel_Shared_Merge_toApply(double* Dev_TestArray, int** IDStart
 
 			pos = 2 * tid - (tid & (stride - 1));
 
-			//if ((pos + stride) < NSize) {
 			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
-			//}
 
 		}
 	}
@@ -665,10 +239,7 @@ __global__ void Kernel_Shared_Merge_toApply(double* Dev_TestArray, int** IDStart
 
 		pos = 2 * tid - (tid & (stride - 1));
 
-		//if ((pos + stride) < NSize) {
 		Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
-		//}
-
 	}
 
 	__syncthreads();
@@ -833,28 +404,15 @@ extern "C" void CPU_GlobalMerge_toApply(int Size, int TotalSegments, int Segment
 
 		tempDir = dir ^ ((IDSegStart / Size) & 1);
 
-		//ICSegStart = IDStartEnd[IDSegMap][0];
-		//ICSegEnd = IDStartEnd[IDSegMap][1];
 		ICSegStart = *(*(IDStartEnd + IDSegMap) + 0);
 		ICSegEnd = *(*(IDStartEnd + IDSegMap) + 1);
 
-
-		//ICLevelStart = IDStartEnd[IDSegStart][0];
-		//ICLevelEnd = IDStartEnd[IDSegEnd][1];
 		ICLevelStart = *(*(IDStartEnd + IDSegStart) + 0);
 		ICLevelEnd = *(*(IDStartEnd + IDSegEnd) + 1);
 
-		//ICLevelRightHalfStart = IDStartEnd[IDSegStart + SegmentsStride][0];
 		ICLevelRightHalfStart = *(*(IDStartEnd + IDSegStart + SegmentsStride) + 0);
 		ICLevelRightHalfEnd = ICLevelEnd;
 
-		//int SegmentsStrideLast = SegmentsStride >> (SegmentsStride == (Size / 2));
-		//int IDSegStartLast = 2*(IDSegMap / (2*SegmentsStrideLast))*SegmentsStrideLast;
-		//int MainDir = dir^(  (IDSegStartLast / (Size / (1 + (SegmentsStride == (Size/2)) )   )) & 1);
-
-		//int SizeChangeFlag = (SegmentsStride == (Size / 2));
-		//int LastStridePeriodicFlag = ((IDSegMap /(SegmentsStride<<1)) & 1) ^ ((IDSegMap /Size) & 1);
-		//int LastDir = (dir ^ ((IDSegMap /(Size>> SizeChangeFlag)) & 1) )^ (LastStridePeriodicFlag & (!SizeChangeFlag));
 		FlagsShift = tempDir ^ (Host_TestArray[ICLevelRightHalfEnd] >= Host_TestArray[ICLevelRightHalfStart]);
 
 		OEFlag = ((ICLevelEnd - ICLevelStart + 1) % 2 != 0)&FlagsShift;
