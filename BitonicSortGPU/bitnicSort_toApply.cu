@@ -115,7 +115,7 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(int NSize, double* De
 }
 
 
-__global__ void Kernel_GlobalMerge_Pre_toApply(int Size, int SegmentsStride, int MaxSegments, int** IDStartEnd, double* Dev_TestArray, int dir, int *OEFlags) {
+__global__ void Kernel_GlobalMerge_Pre_toApply(int Size, int SegmentsStride, int** IDStartEnd, double* Dev_TestArray, int dir, int *OEFlags) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int cid = bid * blockDim.x * blockDim.y + tid;
@@ -145,7 +145,7 @@ __global__ void Kernel_GlobalMerge_Pre_toApply(int Size, int SegmentsStride, int
 }
 
 
-__global__ void Kernel_GlobalMerge_toApply(int Size, int SegmentsStride, int MaxSegments, int** IDStartEnd, double* Dev_TestArray, int dir, int *OEFlags) {
+__global__ void Kernel_GlobalMerge_toApply(int Size, int SegmentsStride, int** IDStartEnd, double* Dev_TestArray, int dir, int *OEFlags) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int cid = bid * blockDim.x * blockDim.y + tid;
@@ -541,9 +541,9 @@ extern "C" void ArbitraryBitonicSort_toApply(int NSize, double* ToSortDev_Cluste
 
 				if (Stride >= 1) {
 
-					Kernel_GlobalMerge_Pre_toApply << <blocksGlobal, 1 >> > (Size, Stride, MaxSegments, IDStartEnd_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
+					Kernel_GlobalMerge_Pre_toApply << <blocksGlobal, 1 >> > (Size, Stride, IDStartEnd_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
 
-					Kernel_GlobalMerge_toApply << <blocksGlobal, threadsGlobal >> > (Size, Stride, MaxSegments, IDStartEnd_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
+					Kernel_GlobalMerge_toApply << <blocksGlobal, threadsGlobal >> > (Size, Stride, IDStartEnd_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
 				}
 				else {
 
