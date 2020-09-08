@@ -538,7 +538,7 @@ __global__ void Kernel_MyNeighborListCal_SortXY_multipleBox(int BlockNumEachBox,
 
 	LeftBound = scid + (bid - bid0 - 1)*BLOCKSIZE;
 	if (LeftBound < scid) LeftBound = scid;
-	RightBound = scid + (bid - bid0)*BLOCKSIZE + BLOCKSIZE - 1;
+	RightBound = scid + (bid - bid0)*BLOCKSIZE - 1;
 	if (RightBound > ecid) RightBound = ecid;
 
 	NExitedThreadsLeft = 0;
