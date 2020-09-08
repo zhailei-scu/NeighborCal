@@ -56,158 +56,29 @@ __device__ int GetIDStart_toApply(int NSize, int Stride, int cid) {
 }
 
 /*Used For Array Size less than BLOCKSIZE And is not of power 2*/
-__global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(int NSize, double* Dev_TestArray, int dir, double padNum) {
+__global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray, int** IDStartEnd_ForSort, int dir, double padNum) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
-	int cid = bid * BLOCKSIZE_TOAPPLY + tid;
 	int tempDir;
 	int pos;
 	int LastPowerTwo;
+	int ICStart;
+	int ICEnd;
+	int IDRelative;
+	int SegmentSize;
 	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
+
+	ICStart = IDStartEnd_ForSort[bid][0];
+	ICEnd = IDStartEnd_ForSort[bid][1];
+	IDRelative = ICStart + tid;
 
 	Share_TestArray[tid] = padNum;
-	if (cid < NSize) {
-		Share_TestArray[tid] = Dev_TestArray[cid];
-	}
-
-	Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = padNum;
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2];
-	}
-
-	LastPowerTwo = 1;
-
-	for (int i = 2; i < NSize; i <<= 1) {
-
-		LastPowerTwo = i;
-
-		tempDir = dir ^ ((cid & (i / 2)) != 0);
-
-
-		for (int stride = i / 2; stride > 0; stride >>= 1) {
-
-			__syncthreads();
-
-			pos = 2 * cid - (cid & (stride - 1));
-
-			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
-
-		}
-	}
-
-	for (int stride = LastPowerTwo; stride > 0; stride >>= 1) {
-		__syncthreads();
-
-		pos = 2 * cid - (cid & (stride - 1));
-
-		Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], dir);
-
-	}
-
-	__syncthreads();
-
-	if (cid < NSize) {
-		Dev_TestArray[cid] = Share_TestArray[tid];
-	}
-	if ((cid + BLOCKSIZE_TOAPPLY / 2) < NSize) {
-		Dev_TestArray[cid + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
-	}
-}
-
-
-__global__ void Kernel_GlobalMerge_Pre_toApply(int Size, int SegmentsStride, int** IDStartEnd, double* Dev_TestArray, int dir, int *OEFlags) {
-	int tid = threadIdx.y*blockDim.x + threadIdx.x;
-	int bid = blockIdx.y*gridDim.x + blockIdx.x;
-	int cid = bid * blockDim.x * blockDim.y + tid;
-	int tempDir;
-	int IDSeg = cid;
-	int IDLevel = IDSeg / SegmentsStride;
-	int IDSegStart = IDLevel * 2 * SegmentsStride;
-	int IDSegEnd = (IDLevel + 1) * 2 * SegmentsStride - 1;
-	int IDSegMap = IDSegStart + IDSeg % SegmentsStride;
-	int ICLevelStart;
-	int ICLevelRightHalfStart;
-	int ICLevelRightHalfEnd;
-	int ICLevelEnd;
-	int FlagsShift;
-
-	tempDir = dir ^ ((IDSegStart / Size) & 1);
-
-	ICLevelStart = *(*(IDStartEnd + IDSegStart) + 0);
-	ICLevelEnd = *(*(IDStartEnd + IDSegEnd) + 1);
-
-	ICLevelRightHalfStart = *(*(IDStartEnd + IDSegStart + SegmentsStride) + 0);
-	ICLevelRightHalfEnd = ICLevelEnd;
-
-	FlagsShift = tempDir ^ (Dev_TestArray[ICLevelRightHalfEnd] >= Dev_TestArray[ICLevelRightHalfStart]);
-
-	OEFlags[IDSegMap] = ((ICLevelEnd - ICLevelStart + 1) % 2 != 0)&FlagsShift;
-}
-
-
-__global__ void Kernel_GlobalMerge_toApply(int Size, int SegmentsStride, int** IDStartEnd, double* Dev_TestArray, int dir, int *OEFlags) {
-	int tid = threadIdx.y*blockDim.x + threadIdx.x;
-	int bid = blockIdx.y*gridDim.x + blockIdx.x;
-	int cid = bid * blockDim.x * blockDim.y + tid;
-	int tempDir;
-	int pos;
-	double Left;
-	double Right;
-	int IDSeg = cid / BLOCKSIZE_TOAPPLY;
-	int IDLevel = IDSeg / SegmentsStride;
-	int IDSegStart = IDLevel * 2 * SegmentsStride;
-	int IDSegEnd = (IDLevel + 1) * 2 * SegmentsStride - 1;
-	int IDSegMap = IDSegStart + IDSeg % SegmentsStride;
-	int ICSegStart;
-	int ICSegEnd;
-	int ICLevelStart;
-	int ICLevelRightHalfStart;
-	int ICLevelRightHalfEnd;
-	int ICLevelEnd;
-	int Stride;
-
-	tempDir = dir ^ ((IDSegStart / Size) & 1);
-
-	ICSegStart = *(*(IDStartEnd + IDSegMap) + 0);
-	ICSegEnd = *(*(IDStartEnd + IDSegMap) + 1);
-
-	pos = ICSegStart + tid;
-
-	ICLevelStart = *(*(IDStartEnd + IDSegStart) + 0);
-	ICLevelEnd = *(*(IDStartEnd + IDSegEnd) + 1);
-
-	Stride = (ICLevelEnd - ICLevelStart + 1) / 2 + OEFlags[IDSegMap];
-
-	if (pos <= ICSegEnd && (pos + Stride) <= ICLevelEnd) {
-		Comparetor_toApply(Dev_TestArray[pos], Dev_TestArray[pos + Stride], tempDir);
-	}
-
-}
-
-
-
-/*Used For Array Size less than BLOCKSIZE And is not of power 2*/
-__global__ void Kernel_Shared_Merge_toApply(double* Dev_TestArray, int** IDStartEnd, int dir, double padNum, int Size) {
-	int tid = threadIdx.y*blockDim.x + threadIdx.x;
-	int bid = blockIdx.y*gridDim.x + blockIdx.x;
-	int tempDir;
-	int pos;
-	int LastPowerTwo;
-	int SegmentSize;
-	int ICStart = IDStartEnd[bid][0];
-	int ICEnd = IDStartEnd[bid][1];
-	int IDRelative = ICStart + tid;
-	double tempPadNum = (1 - 2 * ((bid / Size) % 2))*padNum;
-
-	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
-
-	Share_TestArray[tid] = tempPadNum;
-	if (IDRelative <= ICEnd) {
+	if (IDRelative < ICEnd) {
 		Share_TestArray[tid] = Dev_TestArray[IDRelative];
 	}
 
-	Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = tempPadNum;
-	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
+	Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = padNum;
+	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) < ICEnd) {
 		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2];
 	}
 
@@ -219,7 +90,8 @@ __global__ void Kernel_Shared_Merge_toApply(double* Dev_TestArray, int** IDStart
 
 		LastPowerTwo = i;
 
-		tempDir = ((bid / Size) % 2) ^ (dir ^ ((tid & (i / 2)) != 0));
+		tempDir = dir ^ ((tid & (i / 2)) != 0);
+
 
 		for (int stride = i / 2; stride > 0; stride >>= 1) {
 
@@ -232,36 +104,209 @@ __global__ void Kernel_Shared_Merge_toApply(double* Dev_TestArray, int** IDStart
 		}
 	}
 
-	tempDir = ((bid / Size) % 2) ^ dir;
-
 	for (int stride = LastPowerTwo; stride > 0; stride >>= 1) {
 		__syncthreads();
 
 		pos = 2 * tid - (tid & (stride - 1));
 
-		Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
+		Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], dir);
+
 	}
 
 	__syncthreads();
 
-	if (IDRelative <= ICEnd) {
+	if (IDRelative < ICEnd) {
 		Dev_TestArray[IDRelative] = Share_TestArray[tid];
 	}
-	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
+	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) < ICEnd) {
 		Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
 	}
 }
 
 
+__global__ void Kernel_GlobalMerge_Pre_toApply(int BlockNumEachBox,int Size, int SegmentsStride, int** IDStartEnd_ForSort, double* Dev_TestArray, int dir, int *OEFlags) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * blockDim.x * blockDim.y + tid;
+	int tempDir;
+	int IDSegRelative;
+	int IBox;
+	int cid0;
+	int IDSegStartRelative;
+	int IDLevel;
+	int IDSegStart;
+	int IDSegEnd;
+	int IDSegMap;
+	int ICLevelStart;
+	int ICLevelRightHalfStart;
+	int ICLevelRightHalfEnd;
+	int ICLevelEnd;
+	int FlagsShift;
+
+	IBox = cid / BlockNumEachBox;
+	cid0 = IBox * BlockNumEachBox;
+	IDSegRelative = cid - cid0;
+	
+	IDLevel = IDSegRelative / SegmentsStride;
+	IDSegStartRelative = IDLevel * 2 * SegmentsStride;
+	IDSegStart = 2* cid0 + IDSegStartRelative;
+	IDSegEnd = 2* cid0 + (IDLevel + 1) * 2 * SegmentsStride - 1;
+	IDSegMap = IDSegStart + IDSegRelative % SegmentsStride;
+
+
+	tempDir = dir ^ ((IDSegStartRelative / Size) & 1);
+
+	ICLevelStart = *(*(IDStartEnd_ForSort + IDSegStart) + 0);
+	ICLevelEnd = *(*(IDStartEnd_ForSort + IDSegEnd) + 1);
+
+	ICLevelRightHalfStart = *(*(IDStartEnd_ForSort + IDSegStart + SegmentsStride) + 0);
+	ICLevelRightHalfEnd = ICLevelEnd;
+
+	FlagsShift = tempDir ^ (Dev_TestArray[ICLevelRightHalfEnd] >= Dev_TestArray[ICLevelRightHalfStart]);
+
+	OEFlags[IDSegMap] = ((ICLevelEnd - ICLevelStart + 1) % 2 != 0)&FlagsShift;
+}
+
+
+__global__ void Kernel_GlobalMerge_toApply(int BlockNumEachBox,int Size, int SegmentsStride, int** IDStartEnd_ForSort, double* Dev_TestArray, int dir, int *OEFlags) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * blockDim.x * blockDim.y + tid;
+	int IBox;
+	int bid0;
+	int tempDir;
+	int pos;
+	int IDLevel;
+	int IDSegStart;
+	int IDSegEnd;
+	int IDSegMap;
+	int ICSegStart;
+	int ICSegEnd;
+	int ICLevelStart;
+	int ICLevelEnd;
+	int Stride;
+	int IDSegRelative;
+	int IDSegStartRelative;
+
+	IBox = bid / BlockNumEachBox;
+	bid0 = IBox * BlockNumEachBox;
+	IDSegRelative = bid - bid0;
+	IDLevel = IDSegRelative / SegmentsStride;
+	IDSegStartRelative = IDLevel * 2 * SegmentsStride;
+	IDSegStart = 2*bid0 + IDSegStartRelative;
+	IDSegEnd = 2*bid0 + (IDLevel + 1) * 2 * SegmentsStride - 1;
+	IDSegMap = IDSegStart + IDSegRelative % SegmentsStride;
+
+	tempDir = dir ^ ((IDSegStartRelative / Size) & 1);
+
+	ICSegStart = *(*(IDStartEnd_ForSort + IDSegMap) + 0);
+	ICSegEnd = *(*(IDStartEnd_ForSort + IDSegMap) + 1);
+
+	pos = ICSegStart + tid;
+
+	ICLevelStart = *(*(IDStartEnd_ForSort + IDSegStart) + 0);
+	ICLevelEnd = *(*(IDStartEnd_ForSort + IDSegEnd) + 1);
+
+	Stride = (ICLevelEnd - ICLevelStart + 1) / 2 + OEFlags[IDSegMap];
+
+	if (pos <= ICSegEnd && (pos + Stride) <= ICLevelEnd) {
+		Comparetor_toApply(Dev_TestArray[pos], Dev_TestArray[pos + Stride], tempDir);
+	}
+}
+
+
 /*Used For Array Size less than BLOCKSIZE And is not of power 2*/
-__global__ void Kernel_Shared_Merge_Last_toApply(double* Dev_TestArray, int** IDStartEnd, int dir, int Size) {
+__global__ void Kernel_Shared_Merge_toApply(int BlockNumEachBox_Share,double* Dev_TestArray, int** IDStartEnd_ForSort, int dir, double padNum, int Size) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int tempDir;
 	int pos;
-	int ICStart = IDStartEnd[bid][0];
-	int ICEnd = IDStartEnd[bid][1];
-	int IDRelative = ICStart + tid;
+	int LastPowerTwo;
+	int SegmentSize;
+	int ICStart;
+	int ICEnd;
+	int IDRelative;
+	double tempPadNum;
+	int IBox;
+	int bid0;
+	int IDSegRelative;
+
+	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
+
+	IBox = bid / BlockNumEachBox_Share;
+	bid0 = IBox * BlockNumEachBox_Share;
+	IDSegRelative = bid - bid0;
+
+	ICStart = IDStartEnd_ForSort[bid][0];
+	ICEnd = IDStartEnd_ForSort[bid][1];
+	IDRelative = ICStart + tid;
+	tempPadNum = (1 - 2 * ((IDSegRelative / Size) % 2))*padNum;
+
+	if (ICEnd > 0) {
+
+		Share_TestArray[tid] = tempPadNum;
+		if (IDRelative <= ICEnd) {
+			Share_TestArray[tid] = Dev_TestArray[IDRelative];
+		}
+
+		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = tempPadNum;
+		if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
+			Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2];
+		}
+
+		LastPowerTwo = 1;
+
+		SegmentSize = ICEnd - ICStart + 1;
+
+		for (int i = 2; i < SegmentSize; i <<= 1) {
+
+			LastPowerTwo = i;
+
+			tempDir = ((IDSegRelative / Size) % 2) ^ (dir ^ ((tid & (i / 2)) != 0));
+
+			for (int stride = i / 2; stride > 0; stride >>= 1) {
+
+				__syncthreads();
+
+				pos = 2 * tid - (tid & (stride - 1));
+
+				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
+
+			}
+		}
+
+		tempDir = ((IDSegRelative / Size) % 2) ^ dir;
+
+		for (int stride = LastPowerTwo; stride > 0; stride >>= 1) {
+			__syncthreads();
+
+			pos = 2 * tid - (tid & (stride - 1));
+
+			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
+		}
+
+		__syncthreads();
+
+		if (IDRelative <= ICEnd) {
+			Dev_TestArray[IDRelative] = Share_TestArray[tid];
+		}
+		if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
+			Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
+		}
+
+	}
+}
+
+
+/*Used For Array Size less than BLOCKSIZE And is not of power 2*/
+__global__ void Kernel_Shared_Merge_Last_toApply(int BlockNumEachBox_Share,double* Dev_TestArray, int** IDStartEnd_ForSort, int dir, int Size) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int tempDir;
+	int pos;
+	int ICStart;
+	int ICEnd;
+	int ICRelative;
 	int stride;
 	int tempSegmentSize;
 	int tempICStart;
@@ -274,103 +319,120 @@ __global__ void Kernel_Shared_Merge_Last_toApply(double* Dev_TestArray, int** ID
 	int FlagOne;
 	int tempLevelSeg;
 	int LRFlags;
+	int IBox;
+	int bid0;
+	int IDSegRelative;
 
 	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
 
-	if (IDRelative <= ICEnd) {
-		Share_TestArray[tid] = Dev_TestArray[IDRelative];
-	}
+	IBox = bid / BlockNumEachBox_Share;
+	bid0 = IBox * BlockNumEachBox_Share;
+	IDSegRelative = bid - bid0;
 
-	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
-		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2];
-	}
+	ICStart = IDStartEnd_ForSort[bid][0];
+	ICEnd = IDStartEnd_ForSort[bid][1];
+	ICRelative = ICStart + tid;
 
-	tempDir = ((bid / Size) % 2) ^ dir;
-	tempSegmentSize = ICEnd - ICStart + 1;
-	tempICStart = 0;
-	tempICEnd = tempICStart + tempSegmentSize / 2 - 1;
-	LastSegmentSize = tempSegmentSize;
-	LastRemindSegmentSize = LastSegmentSize - LastSegmentSize / 2;
-	tempAllSize = ICEnd - ICStart + 1;
-	OEFlags = 0;
-	LRFlags = 0;  // 0 for Left , 1 for Right
+	if (ICEnd > 0) {
 
-	for (int LevelSeg = BLOCKSIZE_TOAPPLY / 2; LevelSeg > 0; LevelSeg >>= 1) {
+		if (ICRelative <= ICEnd) {
+			Share_TestArray[tid] = Dev_TestArray[ICRelative];
+		}
 
-		__syncthreads();
+		if ((ICRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
+			Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[ICRelative + BLOCKSIZE_TOAPPLY / 2];
+		}
 
-		FlagOne = (1 == LevelSeg) & (tempAllSize == 3);
-
-		tempLevelSeg = LevelSeg * (!FlagOne) + 2 * FlagOne;
-
-		LRFlags = (tid / tempLevelSeg) % 2;
-
-		tempAllSize = (LastSegmentSize * (LRFlags ^ 1) + LastRemindSegmentSize * (LRFlags & 1))*(!FlagOne) + tempAllSize * FlagOne;
-
-		tempSegmentSize = tempAllSize / 2;
-
-		tempICStart = tempICStart + (LastSegmentSize * (LRFlags & 1))*(!FlagOne) + FlagOne;
-		tempICEnd = tempICStart + tempSegmentSize - 1;
-
-		LastRemindSegmentSize = tempAllSize - tempAllSize / 2;
-
+		tempDir = ((IDSegRelative / Size) % 2) ^ dir;
+		tempSegmentSize = ICEnd - ICStart + 1;
+		tempICStart = 0;
+		tempICEnd = tempICStart + tempSegmentSize / 2 - 1;
 		LastSegmentSize = tempSegmentSize;
+		LastRemindSegmentSize = LastSegmentSize - LastSegmentSize / 2;
+		tempAllSize = ICEnd - ICStart + 1;
+		OEFlags = 0;
+		LRFlags = 0;  // 0 for Left , 1 for Right
 
-		FlagsShift = tempDir ^ (Share_TestArray[tempICEnd + LastRemindSegmentSize] >= Share_TestArray[tempICEnd + 1]);
+		for (int LevelSeg = BLOCKSIZE_TOAPPLY / 2; LevelSeg > 0; LevelSeg >>= 1) {
 
-		OEFlags = FlagsShift & ((tempAllSize % 2) != 0);
+			__syncthreads();
 
-		pos = tempICStart + tid - (tid / tempLevelSeg)*tempLevelSeg;
+			FlagOne = (1 == LevelSeg) & (tempAllSize == 3);
 
-		stride = tempSegmentSize + OEFlags * (!FlagOne);
+			tempLevelSeg = LevelSeg * (!FlagOne) + 2 * FlagOne;
 
-		__syncthreads();
+			LRFlags = (tid / tempLevelSeg) % 2;
 
-		if (pos <= tempICEnd) {
+			tempAllSize = (LastSegmentSize * (LRFlags ^ 1) + LastRemindSegmentSize * (LRFlags & 1))*(!FlagOne) + tempAllSize * FlagOne;
 
-			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
+			tempSegmentSize = tempAllSize / 2;
+
+			tempICStart = tempICStart + (LastSegmentSize * (LRFlags & 1))*(!FlagOne) + FlagOne;
+			tempICEnd = tempICStart + tempSegmentSize - 1;
+
+			LastRemindSegmentSize = tempAllSize - tempAllSize / 2;
+
+			LastSegmentSize = tempSegmentSize;
+
+			FlagsShift = tempDir ^ (Share_TestArray[tempICEnd + LastRemindSegmentSize] >= Share_TestArray[tempICEnd + 1]);
+
+			OEFlags = FlagsShift & ((tempAllSize % 2) != 0);
+
+			pos = tempICStart + tid - (tid / tempLevelSeg)*tempLevelSeg;
+
+			stride = tempSegmentSize + OEFlags * (!FlagOne);
+
+			__syncthreads();
+
+			if (pos <= tempICEnd) {
+
+				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
+
+			}
 
 		}
 
-	}
+		__syncthreads();
 
-	__syncthreads();
+		if (ICRelative <= ICEnd) {
+			Dev_TestArray[ICRelative] = Share_TestArray[tid];
+		}
+		if ((ICRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
+			Dev_TestArray[ICRelative + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
+		}
 
-	if (IDRelative <= ICEnd) {
-		Dev_TestArray[IDRelative] = Share_TestArray[tid];
-	}
-	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
-		Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
 	}
 }
 
 
-extern "C" void FillTheSEArray_toApply(int Level, int Left, int Right, int Index, int** SEArray) {
+extern "C" void FillTheSEArray_toApply(int Level,int MaxSegmentsNumEachBox,int IBox, int Left, int Right, int Index, int** SEArray) {
+	int trueIndex;
 
 	if (0 == Level || Left == Right) {
+		trueIndex = IBox*MaxSegmentsNumEachBox + Index;
 
-		SEArray[Index][0] = Left;
+		SEArray[trueIndex][0] = Left;
 
-		SEArray[Index][1] = Right;
+		SEArray[trueIndex][1] = Right;
 
 		return;
 	}
 
-	FillTheSEArray_toApply(Level - 1, Left, Left + (Right - Left + 1) / 2 - 1, Index * 2, SEArray);
-	FillTheSEArray_toApply(Level - 1, Left + (Right - Left + 1) / 2, Right, Index * 2 + 1, SEArray);
+	FillTheSEArray_toApply(Level - 1, MaxSegmentsNumEachBox, IBox, Left, Left + (Right - Left + 1) / 2 - 1, Index * 2, SEArray);
+	FillTheSEArray_toApply(Level - 1, MaxSegmentsNumEachBox, IBox, Left + (Right - Left + 1) / 2, Right, Index * 2 + 1, SEArray);
 }
 
 
 
 /*Used For Array Size less than BLOCKSIZE And is not of power 2*/
-void CPU_Shared_Merge_toApply(double* Host_TestArray, int** IDStartEnd, int dir, int Size, int TotalSegments) {
+void CPU_Shared_Merge_toApply(double* Host_TestArray, int** IDStartEnd_ForSort, int dir, int Size, int TotalSegments) {
 
 	for (int bid = 0; bid < TotalSegments; bid++) {
 		int tempDir = ((bid / Size) % 2) ^ dir;
 
 		int SegmentSize;
-		int ICStart = IDStartEnd[bid][0];
-		int ICEnd = IDStartEnd[bid][1];
+		int ICStart = IDStartEnd_ForSort[bid][0];
+		int ICEnd = IDStartEnd_ForSort[bid][1];
 
 		for (int Loop = ICStart; Loop <= ICEnd; Loop++) {
 			for (int cid = ICStart; cid < ICEnd; cid++) {
@@ -381,7 +443,7 @@ void CPU_Shared_Merge_toApply(double* Host_TestArray, int** IDStartEnd, int dir,
 	}
 }
 
-extern "C" void CPU_GlobalMerge_toApply(int Size, int TotalSegments, int SegmentsStride, int MaxSegments, int** IDStartEnd, double* Host_TestArray, int dir) {
+extern "C" void CPU_GlobalMerge_toApply(int Size, int TotalSegments, int SegmentsStride, int MaxSegments, int** IDStartEnd_ForSort, double* Host_TestArray, int dir) {
 	int tempDir;
 	int pos;
 	double Left;
@@ -404,13 +466,13 @@ extern "C" void CPU_GlobalMerge_toApply(int Size, int TotalSegments, int Segment
 
 		tempDir = dir ^ ((IDSegStart / Size) & 1);
 
-		ICSegStart = *(*(IDStartEnd + IDSegMap) + 0);
-		ICSegEnd = *(*(IDStartEnd + IDSegMap) + 1);
+		ICSegStart = *(*(IDStartEnd_ForSort + IDSegMap) + 0);
+		ICSegEnd = *(*(IDStartEnd_ForSort + IDSegMap) + 1);
 
-		ICLevelStart = *(*(IDStartEnd + IDSegStart) + 0);
-		ICLevelEnd = *(*(IDStartEnd + IDSegEnd) + 1);
+		ICLevelStart = *(*(IDStartEnd_ForSort + IDSegStart) + 0);
+		ICLevelEnd = *(*(IDStartEnd_ForSort + IDSegEnd) + 1);
 
-		ICLevelRightHalfStart = *(*(IDStartEnd + IDSegStart + SegmentsStride) + 0);
+		ICLevelRightHalfStart = *(*(IDStartEnd_ForSort + IDSegStart + SegmentsStride) + 0);
 		ICLevelRightHalfEnd = ICLevelEnd;
 
 		FlagsShift = tempDir ^ (Host_TestArray[ICLevelRightHalfEnd] >= Host_TestArray[ICLevelRightHalfStart]);
@@ -441,7 +503,7 @@ extern "C" void CPU_GlobalMerge_toApply(int Size, int TotalSegments, int Segment
 	}
 }
 
-extern "C" void ArbitraryBitonicSort_toApply(int NSize, double* ToSortDev_ClustersPosX,int* SortedIndex, int dir) {
+extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_Host, int** IDStartEnd_ForBox_Dev, double* ToSortDev_ClustersPosX, int* SortedIndex, int dir) {
 	//Local Vars
 	int *OEFlags;
 	int NBGlobal;
@@ -460,11 +522,16 @@ extern "C" void ArbitraryBitonicSort_toApply(int NSize, double* ToSortDev_Cluste
 	dim3 threadsShared;
 	double padNum;
 	int Level;
-	int **IDStartEnd_Host;
-	int **IDStartEnd_Dev;
-	int *IDStartEnd_Dev_OneDim;
+	int **IDStartEnd_ForSort_Host;
+	int **IDStartEnd_ForSort_Dev;
+	int *IDStartEnd_ForSort_Dev_OneDim;
 	int **AddrStartEnd_HostRecordDev;
 	int error;
+	int MaxSegmentsEachBox;
+	int tempMaxSegmentsNumEachBox;
+	int MaxSegmentsNumEachBox;
+	int MaxSegmentsNumAllBox;
+	int MaxClusterNumEachBox;
 
 	padNum = -1.E32;
 
@@ -472,49 +539,72 @@ extern "C" void ArbitraryBitonicSort_toApply(int NSize, double* ToSortDev_Cluste
 		padNum = 1.E32;
 	}
 
-	int MaxSegments = NSize;
-	int TotalSegments = 1;
 
-	Level = 0;
-	while (MaxSegments > BLOCKSIZE_TOAPPLY) {
-		MaxSegments = MaxSegments - MaxSegments / 2;
-		TotalSegments <<= 1;
-		Level++;
+	MaxClusterNumEachBox = 0;
+	MaxSegmentsNumEachBox = 0;
+
+	for (int IBox = 0; IBox < NBox; IBox++) {
+		MaxSegmentsEachBox = IDStartEnd_ForBox_Host[IBox][1] - IDStartEnd_ForBox_Host[IBox][0] + 1;
+		tempMaxSegmentsNumEachBox = 1;
+
+		if (MaxClusterNumEachBox < MaxSegmentsEachBox) MaxClusterNumEachBox = MaxSegmentsEachBox;
+
+		Level = 0;
+		while (MaxSegmentsEachBox > BLOCKSIZE_TOAPPLY) {
+			MaxSegmentsEachBox = MaxSegmentsEachBox - MaxSegmentsEachBox / 2;
+			tempMaxSegmentsNumEachBox <<= 1;
+			Level++;
+		}
+
+		if (MaxSegmentsNumEachBox < tempMaxSegmentsNumEachBox) MaxSegmentsNumEachBox = tempMaxSegmentsNumEachBox;
 	}
 
-	IDStartEnd_Host = new int*[TotalSegments];
+	MaxSegmentsNumAllBox = MaxSegmentsNumEachBox * NBox;
 
-	AddrStartEnd_HostRecordDev = new int*[TotalSegments];
 
-	for (int i = 0; i < TotalSegments; i++) {
-		IDStartEnd_Host[i] = new int[2];
+	IDStartEnd_ForSort_Host = new int*[MaxSegmentsNumAllBox];
+
+	AddrStartEnd_HostRecordDev = new int*[MaxSegmentsNumAllBox];
+
+	for (int i = 0; i < MaxSegmentsNumAllBox; i++) {
+		IDStartEnd_ForSort_Host[i] = new int[2];
 
 		for (int j = 0; j < 2; j++) {
-			IDStartEnd_Host[i][j] = 0;
+			IDStartEnd_ForSort_Host[i][j] = -1;
 		}
 	}
 
-	cudaMalloc((void**)&OEFlags, sizeof(int)*TotalSegments);
+	for (int IBox = 0; IBox < NBox; IBox++) {
+		MaxSegmentsEachBox = IDStartEnd_ForBox_Host[IBox][1] - IDStartEnd_ForBox_Host[IBox][0] + 1;;
 
-	FillTheSEArray_toApply(Level, 0, NSize - 1, 0, IDStartEnd_Host);
+		Level = 0;
+		while (MaxSegmentsEachBox > BLOCKSIZE_TOAPPLY) {
+			MaxSegmentsEachBox = MaxSegmentsEachBox - MaxSegmentsEachBox / 2;
+			Level++;
+		}
 
-	error = cudaMalloc((void**)&IDStartEnd_Dev, TotalSegments * sizeof(int*));
-
-
-	for (int i = 0; i < TotalSegments; i++) {
-		error = cudaMalloc((void**)&IDStartEnd_Dev_OneDim, 2 * sizeof(int));
-
-		cudaMemcpy(IDStartEnd_Dev_OneDim, IDStartEnd_Host[i], 2 * sizeof(int), cudaMemcpyHostToDevice);
-
-		AddrStartEnd_HostRecordDev[i] = IDStartEnd_Dev_OneDim;
+		FillTheSEArray_toApply(Level, MaxSegmentsNumEachBox,IBox, IDStartEnd_ForBox_Host[IBox][0], IDStartEnd_ForBox_Host[IBox][1], 0, IDStartEnd_ForSort_Host);
 	}
 
-	cudaMemcpy(IDStartEnd_Dev, AddrStartEnd_HostRecordDev, TotalSegments * sizeof(int*), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&OEFlags, sizeof(int)*MaxSegmentsNumAllBox);
+
+	error = cudaMalloc((void**)&IDStartEnd_ForSort_Dev, MaxSegmentsNumAllBox * sizeof(int*));
+
+
+	for (int i = 0; i < MaxSegmentsNumAllBox; i++) {
+		error = cudaMalloc((void**)&IDStartEnd_ForSort_Dev_OneDim, 2 * sizeof(int));
+
+		cudaMemcpy(IDStartEnd_ForSort_Dev_OneDim, IDStartEnd_ForSort_Host[i], 2 * sizeof(int), cudaMemcpyHostToDevice);
+
+		AddrStartEnd_HostRecordDev[i] = IDStartEnd_ForSort_Dev_OneDim;
+	}
+
+	cudaMemcpy(IDStartEnd_ForSort_Dev, AddrStartEnd_HostRecordDev, MaxSegmentsNumAllBox * sizeof(int*), cudaMemcpyHostToDevice);
 
 
 	BXGlobal = BLOCKSIZE_TOAPPLY;
 	BYGlobal = 1;
-	NBGlobal = TotalSegments / 2;
+	NBGlobal = MaxSegmentsNumAllBox / 2;
 	NBXGlobal = NBGlobal;
 	NBYGlobal = 1;
 	blocksGlobal = dim3(NBXGlobal, NBYGlobal, 1);
@@ -522,32 +612,32 @@ extern "C" void ArbitraryBitonicSort_toApply(int NSize, double* ToSortDev_Cluste
 
 	BXShared = BLOCKSIZE_TOAPPLY / 2;
 	BYShared = 1;
-	NBShared = TotalSegments;
+	NBShared = MaxSegmentsNumAllBox;
 	NBXShared = NBShared;
 	NBYShared = 1;
 	blocksShared = dim3(NBXShared, NBYShared, 1);
 	threadsShared = dim3(BXShared, BYShared, 1);
 
-	if (NSize <= BLOCKSIZE_TOAPPLY) {
-		Kernel_Shared_ArbitraryBitonicSort_toApply << <blocksShared, threadsShared >> > (NSize, ToSortDev_ClustersPosX, dir, padNum);
+	if (MaxClusterNumEachBox <= BLOCKSIZE_TOAPPLY) {
+		Kernel_Shared_ArbitraryBitonicSort_toApply << <blocksShared, threadsShared >> > (ToSortDev_ClustersPosX, IDStartEnd_ForSort_Dev, dir, padNum);
 	}
 	else {
 
-		Kernel_Shared_Merge_toApply << <blocksShared, threadsShared >> > (ToSortDev_ClustersPosX, IDStartEnd_Dev, dir, padNum, 1);
+		Kernel_Shared_Merge_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, IDStartEnd_ForSort_Dev, dir, padNum, 1);
 
-		for (int Size = 2; Size <= TotalSegments; Size <<= 1) {
+		for (int Size = 2; Size <= MaxSegmentsNumEachBox; Size <<= 1) {
 
 			for (int Stride = Size / 2; Stride >= 0; Stride >>= 1) {
 
 				if (Stride >= 1) {
 
-					Kernel_GlobalMerge_Pre_toApply << <blocksGlobal, 1 >> > (Size, Stride, IDStartEnd_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
+					Kernel_GlobalMerge_Pre_toApply << <blocksGlobal, 1 >> > (MaxSegmentsNumEachBox,Size, Stride, IDStartEnd_ForSort_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
 
-					Kernel_GlobalMerge_toApply << <blocksGlobal, threadsGlobal >> > (Size, Stride, IDStartEnd_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
+					Kernel_GlobalMerge_toApply << <blocksGlobal, threadsGlobal >> > (MaxSegmentsNumEachBox,Size, Stride, IDStartEnd_ForSort_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
 				}
 				else {
 
-					Kernel_Shared_Merge_Last_toApply << <blocksShared, threadsShared >> > (ToSortDev_ClustersPosX, IDStartEnd_Dev, dir, Size);
+					Kernel_Shared_Merge_Last_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, IDStartEnd_ForSort_Dev, dir, Size);
 
 					break;
 				}

@@ -8,7 +8,7 @@
 
 typedef unsigned int uint;
 
-extern "C" void ArbitraryBitonicSort_toApply(int NSize, double* ToSortDev_ClustersPosX, int* SortedIndex, int dir);
+extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_Host, int** IDStartEnd_ForBox_Dev, double* ToSortDev_ClustersPosX, int* SortedIndex, int dir);
 
 extern "C" uint bitonicSort_toApply(
 	double *d_DstKey,
