@@ -372,6 +372,289 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare(int BlockNumE
 	}
 }
 
+__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohen(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* Dev_NNearestNeighbor) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * BLOCKSIZE + tid;
+	double Pos_X;
+	double Pos_Y;
+	double Pos_Z;
+	int MappedJC;
+	double distance;
+	double minDistance;
+	double distanceX;
+	double distanceY;
+	double distanceZ;
+	int NNID;
+	int MapedIdex;
+	int IBox;
+	int scid;
+	int ecid;
+	int bid0;
+	int IC;
+	int JC;
+	int LeftRemind;
+	int RightRemind;
+	int MaxRemind;
+	bool flagLeftBreak;
+	bool flagRightBreak;
+	flagLeftBreak = false;
+	flagRightBreak = false;
+
+	IBox = bid / BlockNumEachBox;
+
+	scid = IDStartEnd_Dev[IBox][0];
+	ecid = IDStartEnd_Dev[IBox][1];
+
+	bid0 = IBox * BlockNumEachBox;
+
+	IC = scid + (cid - bid0 * BLOCKSIZE);
+
+	minDistance = 1.E32;
+
+	if (IC <= ecid) {
+
+		MapedIdex = SortedIndexX[IC];
+
+		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
+		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
+		Pos_Z = Dev_ClustersPosXYZ[MapedIdex][2];
+
+		LeftRemind = IC - scid;
+		RightRemind = ecid - IC;
+
+		MaxRemind = RightRemind;
+		if (LeftRemind > MaxRemind) MaxRemind = LeftRemind;
+
+		for (int Shift = 1; Shift <= MaxRemind; Shift++) {
+
+			/*Right Hand Searching*/
+			if (Shift <= RightRemind && false == flagRightBreak) {
+				JC = IC + Shift;
+
+				MappedJC = SortedIndexX[JC];
+
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+				}
+
+				if (distanceX > minDistance) {
+					flagRightBreak = true;
+
+					if (true == flagLeftBreak) {
+						break;
+					}
+				}
+			}
+
+			/*Left Hand Searching*/
+			if (Shift <= LeftRemind && false == flagLeftBreak) {
+				JC = IC - Shift;
+
+				MappedJC = SortedIndexX[JC];
+
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+				}
+
+				if (distanceX > minDistance) {
+					flagLeftBreak = true;
+
+					if (true == flagRightBreak) {
+						break;
+					}
+				}
+			}
+
+		}
+
+		Dev_NNearestNeighbor[MapedIdex] = NNID;
+	}
+}
+
+
+__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohen_WithYLimit(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* Dev_NNearestNeighbor,double *CountEixsted, double *CountEixstedYZ) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * BLOCKSIZE + tid;
+	double Pos_X;
+	double Pos_Y;
+	double Pos_Z;
+	int MappedJC;
+	double distance;
+	double minDistance;
+	double distanceX;
+	double distanceY;
+	double distanceZ;
+	int NNID;
+	int MapedIdex;
+	int IBox;
+	int scid;
+	int ecid;
+	int bid0;
+	int IC;
+	int JC;
+	int LeftRemind;
+	int RightRemind;
+	int MaxRemind;
+	bool flagLeftBreak;
+	bool flagRightBreak;
+	int ExistedCout;
+	int ExistedYZCout;
+	bool findMin;
+	int TotalSearchCount;
+
+	findMin = false;
+
+	flagLeftBreak = false;
+	flagRightBreak = false;
+
+	ExistedCout = 0;
+	ExistedYZCout = 0;
+
+	TotalSearchCount = 0;
+
+	IBox = bid / BlockNumEachBox;
+
+	scid = IDStartEnd_Dev[IBox][0];
+	ecid = IDStartEnd_Dev[IBox][1];
+
+	bid0 = IBox * BlockNumEachBox;
+
+	IC = scid + (cid - bid0 * BLOCKSIZE);
+
+	minDistance = 1.E32;
+
+	if (IC <= ecid) {
+
+		MapedIdex = SortedIndexX[IC];
+
+		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
+		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
+		Pos_Z = Dev_ClustersPosXYZ[MapedIdex][2];
+
+		LeftRemind = IC - scid;
+		RightRemind = ecid - IC;
+
+		MaxRemind = RightRemind;
+		if (LeftRemind > MaxRemind) MaxRemind = LeftRemind;
+
+		for (int Shift = 1; Shift <= MaxRemind; Shift++) {
+
+			/*Right Hand Searching*/
+			if (Shift <= RightRemind && false == flagRightBreak) {
+				JC = IC + Shift;
+
+				TotalSearchCount++;
+
+				MappedJC = SortedIndexX[JC];
+
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+					findMin = true;
+				}
+				else if (true == findMin) {
+					ExistedCout++;
+
+					if (distanceY > minDistance || distanceZ > minDistance) {
+						ExistedYZCout++;
+					}
+				}
+
+				if (distanceX > minDistance) {
+					flagRightBreak = true;
+
+					if (true == flagLeftBreak) {
+						break;
+					}
+				}
+			}
+
+			/*Left Hand Searching*/
+			if (Shift <= LeftRemind && false == flagLeftBreak) {
+				JC = IC - Shift;
+
+				MappedJC = SortedIndexX[JC];
+
+				TotalSearchCount++;
+
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+
+					findMin = true;
+				}
+				else if (true == findMin) {
+					ExistedCout++;
+
+					if (distanceY > minDistance || distanceZ > minDistance) {
+						ExistedYZCout++;
+					}
+				}
+
+				if (distanceX > minDistance) {
+					flagLeftBreak = true;
+
+					if (true == flagRightBreak) {
+						break;
+					}
+				}
+			}
+
+		}
+
+		Dev_NNearestNeighbor[MapedIdex] = NNID;
+
+		CountEixsted[MapedIdex] = double(ExistedCout)/double(TotalSearchCount);
+
+		CountEixstedYZ[MapedIdex] = double(ExistedYZCout) / double(TotalSearchCount);
+	}
+}
+
+
 
 
 __global__ void Kernel_MyNeighborListCal_SortXY_multipleBox(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* SortedIndexY, int* ReverseMap_SortedIndexY, int* Dev_NNearestNeighbor) {
@@ -811,6 +1094,7 @@ __global__ void Kernel_MyNeighborListCal_SortXY_multipleBox_noshare(int BlockNum
 
 
 
+
 __global__ void Kernel_NormalCalcNeighborList_multipleBox(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* Dev_NNearestNeighbor) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
@@ -1066,6 +1350,136 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(int NClusters,
 
 	cudaEventDestroy(StartEvent);
 	cudaEventDestroy(StopEvent);
+
+}
+
+void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+	dim3 threads;
+	dim3 blocks;
+	int NB;
+	cudaError err;
+	int noone;
+	int BlockNumEachBox;
+	int BlockNumEachBoxtemp;
+
+	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
+
+	cudaEvent_t StartEvent;
+	cudaEvent_t StopEvent;
+
+	BlockNumEachBox = 0;
+
+	for (int i = 0; i < NBox; i++) {
+		BlockNumEachBoxtemp = (IDStartEnd_Host[i][1] - IDStartEnd_Host[i][0]) / BLOCKSIZE + 1;
+
+		if (BlockNumEachBox < BlockNumEachBoxtemp) BlockNumEachBox = BlockNumEachBoxtemp;
+	}
+
+	NB = BlockNumEachBox * NBox;
+
+	blocks = dim3(NB, 1, 1);
+	threads = dim3(BLOCKSIZE, 1, 1);
+
+	cudaDeviceSynchronize();
+
+	cudaEventCreate(&StartEvent);
+	cudaEventCreate(&StopEvent);
+
+	cudaEventRecord(StartEvent, 0);
+
+	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohen<< < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndexX, Dev_NNearestNeighbor);
+
+	cudaDeviceSynchronize();
+
+	cudaEventRecord(StopEvent, 0);
+
+	cudaEventSynchronize(StopEvent);
+
+	cudaEventElapsedTime(&timerMyMethod, StartEvent, StopEvent);
+
+	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+
+	cudaEventDestroy(StartEvent);
+	cudaEventDestroy(StopEvent);
+}
+
+void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen_WithYLimit(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+	dim3 threads;
+	dim3 blocks;
+	int NB;
+	cudaError err;
+	int noone;
+	int BlockNumEachBox;
+	int BlockNumEachBoxtemp;
+	double* ExistedCount_Dev;
+	double* ExistedCount_Host;
+	double TotalExistedCount;
+	double* ExistedYZCount_Dev;
+	double* ExistedYZCount_Host;
+	double TotalExistedYZCount;
+
+	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
+
+	ExistedCount_Host = new double[NClusters];
+	ExistedYZCount_Host = new double[NClusters];
+
+	cudaMalloc((void**)&ExistedCount_Dev, NClusters * sizeof(double));
+	cudaMalloc((void**)&ExistedYZCount_Dev, NClusters * sizeof(double));
+
+	cudaEvent_t StartEvent;
+	cudaEvent_t StopEvent;
+
+	BlockNumEachBox = 0;
+
+	for (int i = 0; i < NBox; i++) {
+		BlockNumEachBoxtemp = (IDStartEnd_Host[i][1] - IDStartEnd_Host[i][0]) / BLOCKSIZE + 1;
+
+		if (BlockNumEachBox < BlockNumEachBoxtemp) BlockNumEachBox = BlockNumEachBoxtemp;
+	}
+
+	NB = BlockNumEachBox * NBox;
+
+	blocks = dim3(NB, 1, 1);
+	threads = dim3(BLOCKSIZE, 1, 1);
+
+	cudaDeviceSynchronize();
+
+	cudaEventCreate(&StartEvent);
+	cudaEventCreate(&StopEvent);
+
+	cudaEventRecord(StartEvent, 0);
+
+	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohen_WithYLimit << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndexX, Dev_NNearestNeighbor, ExistedCount_Dev,ExistedYZCount_Dev);
+
+	cudaDeviceSynchronize();
+
+	cudaEventRecord(StopEvent, 0);
+
+	cudaEventSynchronize(StopEvent);
+
+	cudaEventElapsedTime(&timerMyMethod, StartEvent, StopEvent);
+
+	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+
+	cudaEventDestroy(StartEvent);
+	cudaEventDestroy(StopEvent);
+
+
+	cudaMemcpy(ExistedCount_Host, ExistedCount_Dev, NClusters * sizeof(double), cudaMemcpyDeviceToHost);
+
+	TotalExistedCount = 0;
+	for (int i = 0; i < NClusters; i++) {
+		TotalExistedCount = TotalExistedCount + ExistedCount_Host[i];
+	}
+	std::cout << "The percent of existed cout: " << TotalExistedCount/NClusters << std::endl;
+
+	cudaMemcpy(ExistedYZCount_Host, ExistedYZCount_Dev, NClusters * sizeof(double), cudaMemcpyDeviceToHost);
+
+	TotalExistedYZCount = 0;
+	for (int i = 0; i < NClusters; i++) {
+		TotalExistedYZCount = TotalExistedYZCount + ExistedYZCount_Host[i];
+	}
+	std::cout << "The percent of existed YZ cout: " << TotalExistedYZCount / NClusters << std::endl;
 
 }
 

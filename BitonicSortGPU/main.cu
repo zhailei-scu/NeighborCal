@@ -669,6 +669,7 @@ int main(int argc, char** argv) {
 	double **Dev_TestArrayIn;
 	double *Dev_TestArrayIn_SotedX_Shared_ForX;
 	double *Dev_TestArrayIn_SotedX_noShared_ForX;
+	double *Dev_TestArrayIn_SotedX_noShared_ForX_LeftRightCohen;
 	double *Dev_TestArrayIn_SotedX_Shared_ForXY;
 	double *Dev_TestArrayIn_SotedX_noShared_ForXY;
 	double *Dev_TestArrayIn_SotedY_Shared_ForXY;
@@ -677,12 +678,14 @@ int main(int argc, char** argv) {
 	double **Addr_HostRecordDev;
 	int *SortedIndexX_Dev_Shared_ForX;
 	int *SortedIndexX_Dev_noShared_ForX;
+	int *SortedIndexX_Dev_noShared_ForX_LeftRightCohen;
 	int *SortedIndexX_Dev_Shared_ForXY;
 	int *SortedIndexX_Dev_noShared_ForXY;
 	int *SortedIndexY_Dev_Shared_ForXY;
 	int *SortedIndexY_Dev_noShared_ForXY;
 	int *ReverseMap_SortedIndexX_Dev_Shared_ForX;
 	int *ReverseMap_SortedIndexX_Dev_noShared_ForX;
+	int *ReverseMap_SortedIndexX_Dev_noShared_ForX_LeftRightCohen;
 	int *ReverseMap_SortedIndexX_Dev_Shared_ForXY;
 	int *ReverseMap_SortedIndexX_Dev_noShared_ForXY;
 	int *ReverseMap_SortedIndexY_Dev_Shared_ForXY;
@@ -694,6 +697,7 @@ int main(int argc, char** argv) {
 	int *Dev_NNearestNeighbor;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_Shared;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared;
+	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortXY_Shared;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortXY_noShared;
 	int *Host_TestArrayOut_Norm_Shared;
@@ -709,6 +713,8 @@ int main(int argc, char** argv) {
 	float timerMyMethod_SortX_Shared;
 	float totalTimerMyMethod_SortX_noShared;
 	float timerMyMethod_SortX_noShared;
+	float totalTimerMyMethod_SortX_noShared_LeftRightCohen;
+	float timerMyMethod_SortX_noShared_LeftRightCohen;
 	float totalTimerMyMethod_SortXY_Shared;
 	float timerMyMethod_SortXY_Shared;
 	float totalTimerMyMethod_SortXY_noShared;
@@ -722,6 +728,8 @@ int main(int argc, char** argv) {
 	timerMyMethod_SortX_Shared = 0.E0;
 	totalTimerMyMethod_SortX_noShared = 0.E0;
 	timerMyMethod_SortX_noShared = 0.E0;
+	totalTimerMyMethod_SortX_noShared_LeftRightCohen = 0.E0;
+	timerMyMethod_SortX_noShared_LeftRightCohen = 0.E0;
 	totalTimerCommonGPU_Shared = 0.E0;
 	timerCommonGPU_Shared = 0.E0;
 	totalTimerCommonGPU_noShared = 0.E0;
@@ -753,6 +761,7 @@ int main(int argc, char** argv) {
 
 			Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_Shared = new int[NSize];
 			Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared = new int[NSize];
+			Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen = new int[NSize];
 			Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortXY_Shared = new int[NSize];
 			Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortXY_noShared = new int[NSize];
 			Host_TestArrayOut_Norm_Shared = new int[NSize];
@@ -809,6 +818,7 @@ int main(int argc, char** argv) {
 			err = cudaMalloc((void**)&Dev_TestArrayIn, NSize * sizeof(double*));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_Shared_ForX, NSize * sizeof(double));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_noShared_ForX, NSize * sizeof(double));
+			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_noShared_ForX_LeftRightCohen, NSize * sizeof(double));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_Shared_ForXY, NSize * sizeof(double));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_noShared_ForXY, NSize * sizeof(double));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedY_Shared_ForXY, NSize * sizeof(double));
@@ -817,6 +827,7 @@ int main(int argc, char** argv) {
 
 			err = cudaMalloc((void**)&SortedIndexX_Dev_Shared_ForX, NSize * sizeof(int));
 			err = cudaMalloc((void**)&SortedIndexX_Dev_noShared_ForX, NSize * sizeof(int));
+			err = cudaMalloc((void**)&SortedIndexX_Dev_noShared_ForX_LeftRightCohen, NSize * sizeof(int));
 			err = cudaMalloc((void**)&SortedIndexX_Dev_Shared_ForXY, NSize * sizeof(int));
 			err = cudaMalloc((void**)&SortedIndexX_Dev_noShared_ForXY, NSize * sizeof(int));
 			err = cudaMalloc((void**)&SortedIndexY_Dev_Shared_ForXY, NSize * sizeof(int));
@@ -824,6 +835,7 @@ int main(int argc, char** argv) {
 
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_Shared_ForX, NSize * sizeof(int));
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_noShared_ForX, NSize * sizeof(int));
+			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_noShared_ForX_LeftRightCohen, NSize * sizeof(int));
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_Shared_ForXY, NSize * sizeof(int));
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_noShared_ForXY, NSize * sizeof(int));
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexY_Dev_Shared_ForXY, NSize * sizeof(int));
@@ -845,18 +857,21 @@ int main(int argc, char** argv) {
 
 			err = cudaMemcpy(Dev_TestArrayIn_SotedX_Shared_ForX, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedX_noShared_ForX, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(Dev_TestArrayIn_SotedX_noShared_ForX_LeftRightCohen, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedX_Shared_ForXY, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedX_noShared_ForXY, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedY_Shared_ForXY, Host_TestArrayIn_Y, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedY_noShared_ForXY, Host_TestArrayIn_Y, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexX_Dev_Shared_ForX, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexX_Dev_noShared_ForX, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(SortedIndexX_Dev_noShared_ForX_LeftRightCohen, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexX_Dev_Shared_ForXY, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexX_Dev_noShared_ForXY, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexY_Dev_Shared_ForXY, SortedIndexY_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexY_Dev_noShared_ForXY, SortedIndexY_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_Shared_ForX, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_noShared_ForX, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_noShared_ForX_LeftRightCohen, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_Shared_ForXY, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_noShared_ForXY, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexY_Dev_Shared_ForXY, ReverseMap_SortedIndexY_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
@@ -882,11 +897,20 @@ int main(int argc, char** argv) {
 
 			std::cout << "************My Method Arbitaru bitinic sort X no Shared************" << std::endl;
 
-			My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX_noShared_ForX, Dev_TestArrayIn, SortedIndexX_Dev_noShared_ForX, ReverseMap_SortedIndexX_Dev_Shared_ForX, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared, timerMyMethod_SortX_noShared);
+			My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX_noShared_ForX, Dev_TestArrayIn, SortedIndexX_Dev_noShared_ForX, ReverseMap_SortedIndexX_Dev_noShared_ForX, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared, timerMyMethod_SortX_noShared);
 
 			totalTimerMyMethod_SortX_noShared = totalTimerMyMethod_SortX_noShared + timerMyMethod_SortX_noShared;
 
 			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod_SortX_noShared << " for My Method sort X no shared: " << NSize << std::endl;
+
+
+			std::cout << "************My Method Arbitaru bitinic sort X no Shared Left Right Cohen************" << std::endl;
+
+			My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX_noShared_ForX_LeftRightCohen, Dev_TestArrayIn, SortedIndexX_Dev_noShared_ForX_LeftRightCohen, ReverseMap_SortedIndexX_Dev_noShared_ForX_LeftRightCohen, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen, timerMyMethod_SortX_noShared_LeftRightCohen);
+
+			totalTimerMyMethod_SortX_noShared_LeftRightCohen = totalTimerMyMethod_SortX_noShared_LeftRightCohen + timerMyMethod_SortX_noShared_LeftRightCohen;
+
+			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerMyMethod_SortX_noShared_LeftRightCohen << " for My Method sort X no shared LeftRightCohen: " << NSize << std::endl;
 
 
 			std::cout << "************My Method Arbitaru bitinic sort XY Shared************" << std::endl;
@@ -1088,6 +1112,32 @@ int main(int argc, char** argv) {
 
 					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
 					std::cout << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared[i]][2] << std::endl;
+
+
+					std::cin >> noone;
+				}
+			}
+
+			for (int i = 0; i < NSize; i++) {
+				if (Host_TestArrayOut_Norm_Shared[i] != Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]) {
+					std::cout << "It is wrong for index: " << i << std::endl;
+					std::cout << "The common GPU neighbor-list shared result is: " << Host_TestArrayOut_Norm_Shared[i] << std::endl;
+					std::cout << "My neighbor-list sort X no shared LeftRightCohen calculation result is: " << Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i] << std::endl;
+
+					std::cout << "  Distance the common GPU neighbor-list shared : " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2]) << std::endl;
+
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2] << std::endl;
+
+					std::cout << "My neighbor-list sort X no shared LeftRightCohen calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]][2]) << std::endl;
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen[i]][2] << std::endl;
 
 
 					std::cin >> noone;
