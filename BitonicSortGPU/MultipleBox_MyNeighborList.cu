@@ -69,6 +69,105 @@ void SimpleSort_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, doub
 
 }
 
+
+void JumpSegmentYRange_multipleBox(int NClusters, int NBox,int **IDStartEnd_Host, int* SortedIndexX,int* ReverseMap_SortedIndexY, int XJumpStride, int** IDSESeg_Dev, int** JumpSegmentYRange_Dev) {
+	int* SortedIndexX_Host;
+	int* ReverseMap_SortedIndexY_host;
+	int** IDSESeg_Host;
+	int** JumpSegmentYRange_Host;
+	int **Addr_HostRecordDev;
+	int *OneDim_Dev;
+	int TotalNXJumpAllBox;
+	int err;
+
+	SortedIndexX_Host = new int[NClusters];
+	ReverseMap_SortedIndexY_host = new int[NClusters];
+	cudaMemcpy(SortedIndexX_Host, SortedIndexX, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(ReverseMap_SortedIndexY_host, ReverseMap_SortedIndexY, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+
+	IDSESeg_Host = new int*[NBox];
+
+	TotalNXJumpAllBox = 0;
+
+	for (int IBox = 0; IBox < NBox; IBox++) {
+		IDSESeg_Host[IBox] = new int[2];
+
+		IDSESeg_Host[IBox][0] = TotalNXJumpAllBox;
+
+		TotalNXJumpAllBox = TotalNXJumpAllBox + (IDStartEnd_Host[IBox][1] - IDStartEnd_Host[IBox][0])/ XJumpStride + 1;
+
+		IDSESeg_Host[IBox][1] = TotalNXJumpAllBox - 1;
+	}
+
+	Addr_HostRecordDev = new int*[TotalNXJumpAllBox];
+
+	for (int i = 0; i < TotalNXJumpAllBox; i++) {
+
+		err = cudaMalloc((void**)&OneDim_Dev, 2 * sizeof(int));
+
+		cudaMemcpy(OneDim_Dev, IDSESeg_Host[i], 2 * sizeof(int), cudaMemcpyHostToDevice);
+
+		Addr_HostRecordDev[i] = OneDim_Dev;
+	}
+
+	cudaMemcpy(IDSESeg_Dev, Addr_HostRecordDev, TotalNXJumpAllBox * sizeof(int*), cudaMemcpyHostToDevice);
+
+	JumpSegmentYRange_Host = new int*[TotalNXJumpAllBox];
+	for (int i = 0; i < TotalNXJumpAllBox; i++) {
+		JumpSegmentYRange_Host[i] = new int[2];
+
+		for (int j = 0; j < 2; j++) {
+			JumpSegmentYRange_Host[i][j] = -1;
+		}
+	}
+
+
+	for (int IBox = 0; IBox < NBox; IBox++) {
+		int ISegStart = IDSESeg_Host[IBox][0];
+		int ISegEnd = IDSESeg_Host[IBox][1];
+
+		for (int ISeg = ISegStart; ISeg <= ISegEnd; ISeg++) {
+
+			int ICStart = IDStartEnd_Host[IBox][0] + (ISeg- ISegStart) * XJumpStride;
+			int ICEnd = IDStartEnd_Host[IBox][0] + (ISeg - ISegStart+1) * XJumpStride - 1;
+
+			if (ICEnd > IDStartEnd_Host[IBox][1]) ICEnd = IDStartEnd_Host[IBox][1];
+
+			int MaxY = -1;
+			int MinY = 1E16;
+
+			for (int j = ICStart; j <= ICEnd; j++) {
+				int MappedIndex = SortedIndexX_Host[j];
+				int ICY = ReverseMap_SortedIndexY_host[MappedIndex];
+
+				if (ICY > MaxY) MaxY = ICY;
+				if (ICY < MinY) MinY = ICY;
+			}
+
+			JumpSegmentYRange_Host[ISeg][0] = MinY;
+			JumpSegmentYRange_Host[ISeg][1] = MaxY;
+
+		}
+
+
+	}
+
+
+	for (int i = 0; i < TotalNXJumpAllBox; i++) {
+	
+		err = cudaMalloc((void**)&OneDim_Dev, 2 * sizeof(int));
+
+		cudaMemcpy(OneDim_Dev, JumpSegmentYRange_Host[i], 2 * sizeof(int), cudaMemcpyHostToDevice);
+
+		Addr_HostRecordDev[i] = OneDim_Dev;
+	}
+
+	cudaMemcpy(JumpSegmentYRange_Dev, Addr_HostRecordDev, TotalNXJumpAllBox * sizeof(int*), cudaMemcpyHostToDevice);
+
+
+
+}
+
 __global__ void Kernel_MyNeighborListCal_SortX_multipleBox(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* Dev_NNearestNeighbor) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
@@ -494,6 +593,193 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohe
 	}
 }
 
+__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(int BlockNumEachBox, 
+																			  int **IDStartEnd_ForBox_Dev,
+																			  double** Dev_ClustersPosXYZ,
+																			  int* SortedIndexX,
+																			  int* ReverseMap_SortedIndexY,
+																			  int XJumpStride,
+																			  int** IDSESeg_ForJump_Dev,
+																			  int** JumpSegYRange_Dev,
+																			  int* Dev_NNearestNeighbor) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * BLOCKSIZE + tid;
+	double Pos_X;
+	double Pos_Y;
+	double Pos_Z;
+	int MappedJC;
+	double distance;
+	double minDistance;
+	int minSortedYIndex;
+	double distanceX;
+	double distanceY;
+	double distanceZ;
+	int NNID;
+	int MapedIdex;
+	int IBox;
+	int scid;
+	int ecid;
+	int bid0;
+	int IC;
+	int SegStartID;
+	int SegEndID;
+	int ISeg;
+	int JCStart;
+	int JCEnd;
+
+
+	IBox = bid / BlockNumEachBox;
+
+	scid = IDStartEnd_ForBox_Dev[IBox][0];
+	ecid = IDStartEnd_ForBox_Dev[IBox][1];
+
+	bid0 = IBox * BlockNumEachBox;
+
+	IC = scid + (cid - bid0 * BLOCKSIZE);
+
+	minDistance = 1.E32;
+
+	minSortedYIndex = 1E16;
+
+	if (IC <= ecid) {
+
+		MapedIdex = SortedIndexX[IC];
+
+		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
+		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
+		Pos_Z = Dev_ClustersPosXYZ[MapedIdex][2];
+
+		SegStartID = IDSESeg_ForJump_Dev[IBox][0];
+		SegEndID = IDSESeg_ForJump_Dev[IBox][1];
+		
+		ISeg = SegStartID + (cid - bid0 * BLOCKSIZE) / XJumpStride;
+
+		/*Right Hand Searching*/
+		for (int JSeg = ISeg; JSeg <= SegEndID; JSeg++) {
+			JCStart = scid + (JSeg - SegStartID)*XJumpStride;
+			if (JCStart < (IC + 1)) JCStart = IC + 1;
+
+			JCEnd = scid + (JSeg - SegStartID + 1)*XJumpStride - 1;
+
+			MappedJC = SortedIndexX[JCStart];
+
+			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+			distanceX = distanceX * distanceX;
+			distanceY = distanceY * distanceY;
+			distanceZ = distanceZ * distanceZ;
+
+			distance = distanceX + distanceY + distanceZ;
+
+			if (minDistance > distance) {
+				minDistance = distance;
+				NNID = MappedJC;
+				minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+			}
+
+			if (distanceX > minDistance) {
+				break;
+			}
+
+
+			if (minSortedYIndex >= JumpSegYRange_Dev[JSeg][0] || minSortedYIndex <= JumpSegYRange_Dev[JSeg][1]) {
+				for (int JC = JCStart+1;JC<= JCEnd;JC++) {
+					MappedJC = SortedIndexX[JC];
+
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+				}
+
+
+
+
+			}
+
+		}
+
+		/*Left Hand Searching*/
+		for (int JSeg = ISeg; JSeg >= SegStartID; JSeg--) {
+
+			JCStart = scid + (JSeg - SegStartID)*XJumpStride;
+
+			JCEnd = scid + (JSeg - SegStartID + 1)*XJumpStride - 1;
+			if (JCEnd > (IC - 1)) JCEnd = IC - 1;
+
+			MappedJC = SortedIndexX[JCEnd];
+
+			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+			distanceX = distanceX * distanceX;
+			distanceY = distanceY * distanceY;
+			distanceZ = distanceZ * distanceZ;
+
+			distance = distanceX + distanceY + distanceZ;
+
+			if (minDistance > distance) {
+				minDistance = distance;
+				NNID = MappedJC;
+				minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+			}
+
+			if (distanceX > minDistance) {
+				break;
+			}
+
+			if (minSortedYIndex >= JumpSegYRange_Dev[JSeg][0] || minSortedYIndex <= JumpSegYRange_Dev[JSeg][1]) {
+
+				for (int JC = JCEnd-1; JC >= JCStart; JC--) {
+					MappedJC = SortedIndexX[JC];
+
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+				}
+			}
+
+		}
+
+		Dev_NNearestNeighbor[MapedIdex] = NNID;
+	}
+}
+
 
 __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohen_WithYLimit(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* Dev_NNearestNeighbor,double *CountEixsted, double *CountEixstedYZ) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
@@ -653,7 +939,6 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohe
 		CountEixstedYZ[MapedIdex] = double(ExistedYZCout) / double(TotalSearchCount);
 	}
 }
-
 
 
 
@@ -1449,7 +1734,7 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen
 
 	cudaEventRecord(StartEvent, 0);
 
-	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohen_WithYLimit << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndexX, Dev_NNearestNeighbor, ExistedCount_Dev,ExistedYZCount_Dev);
+	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohen_WithYLimit << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndexX, Dev_NNearestNeighbor, ExistedCount_Dev, ExistedYZCount_Dev);
 
 	cudaDeviceSynchronize();
 
@@ -1471,7 +1756,7 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen
 	for (int i = 0; i < NClusters; i++) {
 		TotalExistedCount = TotalExistedCount + ExistedCount_Host[i];
 	}
-	std::cout << "The percent of existed cout: " << TotalExistedCount/NClusters << std::endl;
+	std::cout << "The percent of existed cout: " << TotalExistedCount / NClusters << std::endl;
 
 	cudaMemcpy(ExistedYZCount_Host, ExistedYZCount_Dev, NClusters * sizeof(double), cudaMemcpyDeviceToHost);
 
@@ -1481,6 +1766,97 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen
 	}
 	std::cout << "The percent of existed YZ cout: " << TotalExistedYZCount / NClusters << std::endl;
 
+}
+
+void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int NClusters, 
+																							int NBox, 
+																							int **IDStartEnd_Host, 
+																							int **IDStartEnd_Dev, 
+																							double* ToSortDev_ClustersPosX,
+																							double* ToSortDev_ClustersPosY,
+																							double** Dev_ClustersPosXYZ,
+																							int* SortedIndexX,
+																							int* ReverseMap_SortedIndexX,
+																							int* SortedIndexY,
+																							int* ReverseMap_SortedIndexY,
+																							int* Dev_NNearestNeighbor,
+																							int* Host_NNearestNeighbor,
+																							float &timerMyMethod) {
+	dim3 threads;
+	dim3 blocks;
+	int NB;
+	cudaError err;
+	int noone;
+	int BlockNumEachBox;
+	int BlockNumEachBoxtemp;
+	int XJumpStride;
+	int TotalNXJumpAllBox;
+	int** IDSESeg_Dev;
+	int** JumpSegmentYRange_Dev;
+
+	TotalNXJumpAllBox = 0;
+
+	XJumpStride = 2;
+
+	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
+
+	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosY, SortedIndexY, ReverseMap_SortedIndexY);
+
+	for (int IBox = 0; IBox < NBox; IBox++) {
+		TotalNXJumpAllBox = TotalNXJumpAllBox + (IDStartEnd_Host[IBox][1] - IDStartEnd_Host[IBox][0]) / XJumpStride + 1;
+	}
+
+	cudaMalloc((void**)&IDSESeg_Dev, NBox * sizeof(int*));
+
+	cudaMalloc((void**)&JumpSegmentYRange_Dev, TotalNXJumpAllBox * sizeof(int*));
+
+	JumpSegmentYRange_multipleBox(NClusters,NBox, IDStartEnd_Host, SortedIndexX, ReverseMap_SortedIndexY, XJumpStride, IDSESeg_Dev, JumpSegmentYRange_Dev);
+
+	cudaEvent_t StartEvent;
+	cudaEvent_t StopEvent;
+
+	BlockNumEachBox = 0;
+
+	for (int i = 0; i < NBox; i++) {
+		BlockNumEachBoxtemp = (IDStartEnd_Host[i][1] - IDStartEnd_Host[i][0]) / BLOCKSIZE + 1;
+
+		if (BlockNumEachBox < BlockNumEachBoxtemp) BlockNumEachBox = BlockNumEachBoxtemp;
+	}
+
+	NB = BlockNumEachBox * NBox;
+
+	blocks = dim3(NB, 1, 1);
+	threads = dim3(BLOCKSIZE, 1, 1);
+
+	cudaDeviceSynchronize();
+
+	cudaEventCreate(&StartEvent);
+	cudaEventCreate(&StopEvent);
+
+	cudaEventRecord(StartEvent, 0);
+
+	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit << < blocks, threads >> > (BlockNumEachBox, 
+																							 IDStartEnd_Dev, 
+																							 Dev_ClustersPosXYZ,
+																							 SortedIndexX,
+																							 ReverseMap_SortedIndexY,
+																							 XJumpStride,
+																							 IDSESeg_Dev, 
+																							 JumpSegmentYRange_Dev,
+																							 Dev_NNearestNeighbor);
+
+	cudaDeviceSynchronize();
+
+	cudaEventRecord(StopEvent, 0);
+
+	cudaEventSynchronize(StopEvent);
+
+	cudaEventElapsedTime(&timerMyMethod, StartEvent, StopEvent);
+
+	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+
+	cudaEventDestroy(StartEvent);
+	cudaEventDestroy(StopEvent);
 }
 
 
