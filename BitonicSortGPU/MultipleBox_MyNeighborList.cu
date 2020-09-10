@@ -1769,19 +1769,19 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen
 }
 
 void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int NClusters, 
-																							int NBox, 
-																							int **IDStartEnd_Host, 
-																							int **IDStartEnd_Dev, 
-																							double* ToSortDev_ClustersPosX,
-																							double* ToSortDev_ClustersPosY,
-																							double** Dev_ClustersPosXYZ,
-																							int* SortedIndexX,
-																							int* ReverseMap_SortedIndexX,
-																							int* SortedIndexY,
-																							int* ReverseMap_SortedIndexY,
-																							int* Dev_NNearestNeighbor,
-																							int* Host_NNearestNeighbor,
-																							float &timerMyMethod) {
+																			 int NBox, 
+																			 int **IDStartEnd_Host, 
+																			 int **IDStartEnd_Dev, 
+																			 double* ToSortDev_ClustersPosX,
+																			 double* ToSortDev_ClustersPosY,
+																			 double** Dev_ClustersPosXYZ,
+																			 int* SortedIndexX,
+																			 int* ReverseMap_SortedIndexX,
+																			 int* SortedIndexY,
+																			 int* ReverseMap_SortedIndexY,
+																			 int* Dev_NNearestNeighbor,
+																			 int* Host_NNearestNeighbor,
+																			 float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;

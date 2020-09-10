@@ -10,6 +10,20 @@ extern "C" void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(int
 extern "C" void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod);
 extern "C" void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_Shared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod);
 
+extern "C" void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int NClusters,
+																						int NBox,
+																						int **IDStartEnd_Host,
+																						int **IDStartEnd_Dev,
+																						double* ToSortDev_ClustersPosX,
+																						double* ToSortDev_ClustersPosY,
+																						double** Dev_ClustersPosXYZ,
+																						int* SortedIndexX,
+																						int* ReverseMap_SortedIndexX,
+																						int* SortedIndexY,
+																						int* ReverseMap_SortedIndexY,
+																						int* Dev_NNearestNeighbor,
+																						int* Host_NNearestNeighbor,
+																						float &timerMyMethod);
 
 extern "C" void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_noShared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double* ToSortDev_ClustersPosY, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* SortedIndexY, int* ReverseMap_SortedIndexY, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod);
 
