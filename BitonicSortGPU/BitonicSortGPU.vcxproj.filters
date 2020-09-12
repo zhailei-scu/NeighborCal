@@ -47,9 +47,6 @@
     <ClInclude Include="radixSort.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="MyNeighborList.h">
       <Filter>头文件</Filter>
     </ClInclude>

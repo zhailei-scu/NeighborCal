@@ -700,7 +700,6 @@ int main(int argc, char** argv) {
 	int *SortedIndexY_Host;
 	int *ReverseMap_SortedIndexX_Host;
 	int *ReverseMap_SortedIndexY_Host;
-	int *Dev_NNearestNeighbor;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_Shared;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit;
@@ -741,6 +740,10 @@ int main(int argc, char** argv) {
 	timerMyMethod_SortX_noShared_WithYLimit = 0.E0;
 	totalTimerMyMethod_SortX_noShared_LeftRightCohen = 0.E0;
 	timerMyMethod_SortX_noShared_LeftRightCohen = 0.E0;
+	totalTimerMyMethod_SortXY_Shared = 0.E0;
+	timerMyMethod_SortXY_Shared = 0.E0;
+	totalTimerMyMethod_SortXY_noShared = 0.E0;
+	timerMyMethod_SortXY_noShared = 0.E0;
 	totalTimerCommonGPU_Shared = 0.E0;
 	timerCommonGPU_Shared = 0.E0;
 	totalTimerCommonGPU_noShared = 0.E0;
@@ -860,8 +863,6 @@ int main(int argc, char** argv) {
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexY_Dev_noShared_ForXY, NSize * sizeof(int));
 
 
-			err = cudaMalloc((void**)&Dev_NNearestNeighbor, NSize * sizeof(int));
-
 			for (int i = 0; i < NSize; i++) {
 				err = cudaMalloc((void**)&TestArray_Dev_OneDim, 3 * sizeof(double));
 
@@ -912,7 +913,7 @@ int main(int argc, char** argv) {
 
 			std::cout << "************My Method Arbitaru bitinic sort X Shared************" << std::endl;
 
-			My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_Shared(NSize,NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX_Shared_ForX, Dev_TestArrayIn, SortedIndexX_Dev_Shared_ForX, ReverseMap_SortedIndexX_Dev_Shared_ForX, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_Shared, timerMyMethod_SortX_Shared);
+			My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_Shared(NSize,NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX_Shared_ForX, Dev_TestArrayIn, SortedIndexX_Dev_Shared_ForX, ReverseMap_SortedIndexX_Dev_Shared_ForX, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_Shared, timerMyMethod_SortX_Shared);
 
 			totalTimerMyMethod_SortX_Shared = totalTimerMyMethod_SortX_Shared + timerMyMethod_SortX_Shared;
 
@@ -921,7 +922,7 @@ int main(int argc, char** argv) {
 
 			std::cout << "************My Method Arbitaru bitinic sort X no Shared************" << std::endl;
 
-			My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX_noShared_ForX, Dev_TestArrayIn, SortedIndexX_Dev_noShared_ForX, ReverseMap_SortedIndexX_Dev_noShared_ForX, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared, timerMyMethod_SortX_noShared);
+			My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX_noShared_ForX, Dev_TestArrayIn, SortedIndexX_Dev_noShared_ForX, ReverseMap_SortedIndexX_Dev_noShared_ForX, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared, timerMyMethod_SortX_noShared);
 
 			totalTimerMyMethod_SortX_noShared = totalTimerMyMethod_SortX_noShared + timerMyMethod_SortX_noShared;
 
@@ -941,7 +942,6 @@ int main(int argc, char** argv) {
 				SortedIndexY_Dev_noShared_ForX_WithYLimit,
 				ReverseMap_SortedIndexX_Dev_noShared_ForX_WithYLimit,
 				ReverseMap_SortedIndexY_Dev_noShared_ForX_WithYLimit,
-				Dev_NNearestNeighbor,
 				Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit,
 				timerMyMethod_SortX_noShared_WithYLimit);
 
@@ -952,7 +952,7 @@ int main(int argc, char** argv) {
 
 			std::cout << "************My Method Arbitaru bitinic sort X no Shared Left Right Cohen************" << std::endl;
 
-			My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX_noShared_ForX_LeftRightCohen, Dev_TestArrayIn, SortedIndexX_Dev_noShared_ForX_LeftRightCohen, ReverseMap_SortedIndexX_Dev_noShared_ForX_LeftRightCohen, Dev_NNearestNeighbor, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen, timerMyMethod_SortX_noShared_LeftRightCohen);
+			My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn_SotedX_noShared_ForX_LeftRightCohen, Dev_TestArrayIn, SortedIndexX_Dev_noShared_ForX_LeftRightCohen, ReverseMap_SortedIndexX_Dev_noShared_ForX_LeftRightCohen, Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_LeftRightCohen, timerMyMethod_SortX_noShared_LeftRightCohen);
 
 			totalTimerMyMethod_SortX_noShared_LeftRightCohen = totalTimerMyMethod_SortX_noShared_LeftRightCohen + timerMyMethod_SortX_noShared_LeftRightCohen;
 
@@ -972,7 +972,6 @@ int main(int argc, char** argv) {
 																		SortedIndexY_Dev_Shared_ForXY,
 																		ReverseMap_SortedIndexX_Dev_Shared_ForXY,
 																		ReverseMap_SortedIndexY_Dev_Shared_ForXY,
-																		Dev_NNearestNeighbor, 
 																		Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortXY_Shared, 
 																		timerMyMethod_SortXY_Shared);
 
@@ -993,7 +992,6 @@ int main(int argc, char** argv) {
 																		  SortedIndexY_Dev_noShared_ForXY,
 																		  ReverseMap_SortedIndexX_Dev_noShared_ForXY,
 																		  ReverseMap_SortedIndexY_Dev_noShared_ForXY,
-																		  Dev_NNearestNeighbor, 
 																		  Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortXY_noShared, 
 																		  timerMyMethod_SortXY_noShared);
 
@@ -1004,7 +1002,7 @@ int main(int argc, char** argv) {
 
 			std::cout << "************Method Common GPU shared************" << std::endl;
 
-			Common_NeighborListCal_multipleBox_Shared(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn, Dev_NNearestNeighbor, Host_TestArrayOut_Norm_Shared, timerCommonGPU_Shared);
+			Common_NeighborListCal_multipleBox_Shared(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn, Host_TestArrayOut_Norm_Shared, timerCommonGPU_Shared);
 
 			totalTimerCommonGPU_Shared = totalTimerCommonGPU_Shared + timerCommonGPU_Shared;
 
@@ -1012,7 +1010,7 @@ int main(int argc, char** argv) {
 
 			std::cout << "************Method Common GPU no shared************" << std::endl;
 
-			Common_NeighborListCal_multipleBox_noShared(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn, Dev_NNearestNeighbor, Host_TestArrayOut_Norm_noShared, timerCommonGPU_noShared);
+			Common_NeighborListCal_multipleBox_noShared(NSize, NBox, Host_IDStartEnd, Dev_IDStartEnd, Dev_TestArrayIn, Host_TestArrayOut_Norm_noShared, timerCommonGPU_noShared);
 
 			totalTimerCommonGPU_noShared = totalTimerCommonGPU_noShared + timerCommonGPU_noShared;
 
@@ -1020,67 +1018,67 @@ int main(int argc, char** argv) {
 
 			//std::cout << "************Method Common CPU************" << std::endl;
 
-			//Common_NeighborListCal_CPU_multipleBox(NSize, NBox, Host_IDStartEnd, Host_TestArrayIn, Host_TestArrayOut_CPU);
+			Common_NeighborListCal_CPU_multipleBox(NSize, NBox, Host_IDStartEnd, Host_TestArrayIn, Host_TestArrayOut_CPU);
 
-			/*
-			//Verify
-			for (int i = 0; i < NSize; i++) {
-				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_Shared[i]) {
-					std::cout << "It is wrong for index: " << i << std::endl;
-					std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
-					std::cout << "My neighbor-list shared calculation result is: " << Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_Shared[i] << std::endl;
-
-					std::cout << "  Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
-						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
-						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
-
-					std::cout << "My neighbor-list shared calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_Shared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_Shared[i]][0]) +
-						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_Shared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_Shared[i]][1]) +
-						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_Shared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_Shared[i]][2]) << std::endl;
-
-					std::cin >> noone;
-				}
-			}
-
-			for (int i = 0; i < NSize; i++) {
-				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]) {
-					std::cout << "It is wrong for index: " << i << std::endl;
-					std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
-					std::cout << "My neighbor-list no shared calculation result is: " << Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i] << std::endl;
-
-					std::cout << "  Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
-						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
-						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
-
-					std::cout << "My neighbor-list no shared calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][0]) +
-						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][1]) +
-						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][2]) << std::endl;
-
-					std::cin >> noone;
-				}
-			}
 			
-
 			//Verify
 			for (int i = 0; i < NSize; i++) {
-				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_Norm[i]) {
+				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_Norm_Shared[i]) {
 					std::cout << "It is wrong for index: " << i << std::endl;
 					std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
-					std::cout << "The common GPU result is: " << Host_TestArrayOut_Norm[i] << std::endl;
+					std::cout << "Host_TestArrayOut_Norm_Shared result is: " << Host_TestArrayOut_Norm_Shared[i] << std::endl;
 
-					std::cout << "   Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
+					std::cout << "  Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
 						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
 						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
 
-					std::cout << "The common GPU calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0]) +
-						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1]) +
-						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2]) << std::endl;
+					std::cout << "Host_TestArrayOut_Norm_Shared calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2]) << std::endl;
 
 					std::cin >> noone;
 				}
 			}
 
-			*/
+			//for (int i = 0; i < NSize; i++) {
+			//	if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]) {
+			//		std::cout << "It is wrong for index: " << i << std::endl;
+			//		std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
+			//		std::cout << "My neighbor-list no shared calculation result is: " << Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i] << std::endl;
+
+			//		std::cout << "  Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
+			//			(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
+			//			(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
+
+			//		std::cout << "My neighbor-list no shared calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][0]) +
+			//			(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][1]) +
+			//			(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]][2]) << std::endl;
+
+			//		std::cin >> noone;
+			//	}
+			//}
+			//
+
+			////Verify
+			//for (int i = 0; i < NSize; i++) {
+			//	if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_Norm[i]) {
+			//		std::cout << "It is wrong for index: " << i << std::endl;
+			//		std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
+			//		std::cout << "The common GPU result is: " << Host_TestArrayOut_Norm[i] << std::endl;
+
+			//		std::cout << "   Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
+			//			(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
+			//			(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
+
+			//		std::cout << "The common GPU calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][0]) +
+			//			(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][1]) +
+			//			(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm[i]][2]) << std::endl;
+
+			//		std::cin >> noone;
+			//	}
+			//}
+
+			
 			
 
 			//Verify
@@ -1158,6 +1156,34 @@ int main(int argc, char** argv) {
 
 					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
 					std::cout << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared[i]][2] << std::endl;
+
+
+					std::cin >> noone;
+				}
+			}
+
+
+			for (int i = 0; i < NSize; i++) {
+
+				if (Host_TestArrayOut_Norm_Shared[i] != Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]) {
+					std::cout << "It is wrong for index: " << i << std::endl;
+					std::cout << "The common GPU neighbor-list shared result is: " << Host_TestArrayOut_Norm_Shared[i] << std::endl;
+					std::cout << "My neighbor-list sort X no shared withYLimit calculation result is: " << Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i] << std::endl;
+
+					std::cout << "  Distance the common GPU neighbor-list shared : " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2]) << std::endl;
+
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2] << std::endl;
+
+					std::cout << "My neighbor-list sort X no shared withYLimit calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]][0]) +
+						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]][1]) +
+						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]][2]) << std::endl;
+
+					std::cout << Host_TestArrayIn[i][0] << " " << Host_TestArrayIn[i][1] << " " << Host_TestArrayIn[i][2] << std::endl;
+					std::cout << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]][0] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]][1] << " " << Host_TestArrayIn[Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit[i]][2] << std::endl;
 
 
 					std::cin >> noone;

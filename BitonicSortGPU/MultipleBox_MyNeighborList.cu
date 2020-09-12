@@ -58,6 +58,13 @@ void SimpleSort_multipleBox(int NClusters, int NBox, int **IDStartEnd_Host, doub
 
 		for (int i = IDStartEnd_Host[IBox][0]; i <= IDStartEnd_Host[IBox][1]; i++) {
 			SortedIndex_Host[i] = (*ptr).second;
+
+
+			if (SortedIndex_Host[i] < 0 || SortedIndex_Host[i] >NClusters) {
+				std::cout << "It is wrong for: " << i << " " << SortedIndex_Host[i] << std::endl;
+			}
+
+
 			ReverseMap_SortedIndex_Host[SortedIndex_Host[i]] = i;
 			ptr++;
 		}
@@ -99,18 +106,18 @@ void JumpSegmentYRange_multipleBox(int NClusters, int NBox,int **IDStartEnd_Host
 		IDSESeg_Host[IBox][1] = TotalNXJumpAllBox - 1;
 	}
 
-	Addr_HostRecordDev = new int*[TotalNXJumpAllBox];
+	Addr_HostRecordDev = new int*[NBox];
 
-	for (int i = 0; i < TotalNXJumpAllBox; i++) {
+	for (int IBox = 0; IBox < NBox; IBox++) {
 
 		err = cudaMalloc((void**)&OneDim_Dev, 2 * sizeof(int));
 
-		cudaMemcpy(OneDim_Dev, IDSESeg_Host[i], 2 * sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemcpy(OneDim_Dev, IDSESeg_Host[IBox], 2 * sizeof(int), cudaMemcpyHostToDevice);
 
-		Addr_HostRecordDev[i] = OneDim_Dev;
+		Addr_HostRecordDev[IBox] = OneDim_Dev;
 	}
 
-	cudaMemcpy(IDSESeg_Dev, Addr_HostRecordDev, TotalNXJumpAllBox * sizeof(int*), cudaMemcpyHostToDevice);
+	cudaMemcpy(IDSESeg_Dev, Addr_HostRecordDev, NBox * sizeof(int*), cudaMemcpyHostToDevice);
 
 	JumpSegmentYRange_Host = new int*[TotalNXJumpAllBox];
 	for (int i = 0; i < TotalNXJumpAllBox; i++) {
@@ -152,6 +159,9 @@ void JumpSegmentYRange_multipleBox(int NClusters, int NBox,int **IDStartEnd_Host
 
 	}
 
+	if (!Addr_HostRecordDev) delete[] Addr_HostRecordDev;
+
+	Addr_HostRecordDev = new int*[TotalNXJumpAllBox];
 
 	for (int i = 0; i < TotalNXJumpAllBox; i++) {
 	
@@ -593,10 +603,11 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohe
 	}
 }
 
-__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(int BlockNumEachBox, 
+__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(int BlockNumEachBox,
 																			  int **IDStartEnd_ForBox_Dev,
 																			  double** Dev_ClustersPosXYZ,
 																			  int* SortedIndexX,
+																			  int* SortedIndexY,
 																			  int* ReverseMap_SortedIndexY,
 																			  int XJumpStride,
 																			  int** IDSESeg_ForJump_Dev,
@@ -611,6 +622,7 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 	int MappedJC;
 	double distance;
 	double minDistance;
+	double minDistanceYZ;
 	int minSortedYIndex;
 	double distanceX;
 	double distanceY;
@@ -627,7 +639,10 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 	int ISeg;
 	int JCStart;
 	int JCEnd;
-
+	int minY;
+	int maxY;
+	bool OmitFlag;
+	int ICY;
 
 	IBox = bid / BlockNumEachBox;
 
@@ -640,11 +655,15 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 
 	minDistance = 1.E32;
 
+	minDistanceYZ = 1.E32;
+
 	minSortedYIndex = 1E16;
 
 	if (IC <= ecid) {
 
 		MapedIdex = SortedIndexX[IC];
+
+		ICY = ReverseMap_SortedIndexY[MapedIdex];
 
 		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
 		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
@@ -652,40 +671,62 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 
 		SegStartID = IDSESeg_ForJump_Dev[IBox][0];
 		SegEndID = IDSESeg_ForJump_Dev[IBox][1];
-		
+
 		ISeg = SegStartID + (cid - bid0 * BLOCKSIZE) / XJumpStride;
 
 		/*Right Hand Searching*/
 		for (int JSeg = ISeg; JSeg <= SegEndID; JSeg++) {
 			JCStart = scid + (JSeg - SegStartID)*XJumpStride;
 			if (JCStart < (IC + 1)) JCStart = IC + 1;
-
 			JCEnd = scid + (JSeg - SegStartID + 1)*XJumpStride - 1;
+			if (JCEnd > ecid) JCEnd = ecid;
 
-			MappedJC = SortedIndexX[JCStart];
+			minY = JumpSegYRange_Dev[JSeg][0];
+			maxY = JumpSegYRange_Dev[JSeg][1];
 
-			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
-			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
-			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+			if (ICY > minSortedYIndex) {
+				MappedJC = SortedIndexY[maxY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
 
-			distanceX = distanceX * distanceX;
-			distanceY = distanceY * distanceY;
-			distanceZ = distanceZ * distanceZ;
-
-			distance = distanceX + distanceY + distanceZ;
-
-			if (minDistance > distance) {
-				minDistance = distance;
-				NNID = MappedJC;
-				minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+				OmitFlag = ((maxY < minSortedYIndex) && (distanceY >= minDistanceYZ)&&(JSeg!= ISeg));
 			}
 
-			if (distanceX > minDistance) {
-				break;
+			if (ICY < minSortedYIndex) {
+				MappedJC = SortedIndexY[minY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((minY> minSortedYIndex)&&(distanceY >= minDistanceYZ) && (JSeg != ISeg));
 			}
 
+			if (JCStart <= JCEnd) {
+				MappedJC = SortedIndexX[JCStart];
 
-			if (minSortedYIndex >= JumpSegYRange_Dev[JSeg][0] || minSortedYIndex <= JumpSegYRange_Dev[JSeg][1]) {
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+					minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+					minDistanceYZ = distance - distanceX;
+				}
+
+				if (distanceX > minDistance) {
+					break;
+				}
+			}
+
+			OmitFlag = false;
+			if (!OmitFlag) {
 				for (int JC = JCStart+1;JC<= JCEnd;JC++) {
 					MappedJC = SortedIndexX[JC];
 
@@ -703,6 +744,7 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 						minDistance = distance;
 						NNID = MappedJC;
 						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+						minDistanceYZ = distance - distanceX;
 					}
 
 					if (distanceX > minDistance) {
@@ -710,44 +752,71 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 					}
 				}
 
-
-
-
 			}
 
 		}
 
-		/*Left Hand Searching*/
+		minDistanceYZ = 1.E32;
+		minSortedYIndex = 1E16;
+		///*Left Hand Searching*/
 		for (int JSeg = ISeg; JSeg >= SegStartID; JSeg--) {
 
 			JCStart = scid + (JSeg - SegStartID)*XJumpStride;
-
+			if (JCStart > ecid) JCStart = ecid;
 			JCEnd = scid + (JSeg - SegStartID + 1)*XJumpStride - 1;
 			if (JCEnd > (IC - 1)) JCEnd = IC - 1;
 
-			MappedJC = SortedIndexX[JCEnd];
+			minY = JumpSegYRange_Dev[JSeg][0];
+			maxY = JumpSegYRange_Dev[JSeg][1];
 
-			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
-			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
-			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+			if (ICY > minSortedYIndex) {
+				MappedJC = SortedIndexY[maxY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
 
-			distanceX = distanceX * distanceX;
-			distanceY = distanceY * distanceY;
-			distanceZ = distanceZ * distanceZ;
-
-			distance = distanceX + distanceY + distanceZ;
-
-			if (minDistance > distance) {
-				minDistance = distance;
-				NNID = MappedJC;
-				minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+				OmitFlag = ((maxY < minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
 			}
 
-			if (distanceX > minDistance) {
-				break;
+			if (ICY < minSortedYIndex) {
+				MappedJC = SortedIndexY[minY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((minY > minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
 			}
 
-			if (minSortedYIndex >= JumpSegYRange_Dev[JSeg][0] || minSortedYIndex <= JumpSegYRange_Dev[JSeg][1]) {
+			//printf("%d %d %d %d %d %d %d %d %d %d\n", IC, MapedIdex, ICY, SegStartID, SegEndID, ISeg, JCStart, JCEnd, minY, maxY);
+
+			if (JCEnd >= JCStart) {
+
+				MappedJC = SortedIndexX[JCEnd];
+
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+					minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+					minDistanceYZ = distance - distanceX;
+				}
+
+				if (distanceX > minDistance) {
+					break;
+				}
+
+			}
+
+			OmitFlag = false;
+
+			if (!OmitFlag) {
 
 				for (int JC = JCEnd-1; JC >= JCStart; JC--) {
 					MappedJC = SortedIndexX[JC];
@@ -766,6 +835,7 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 						minDistance = distance;
 						NNID = MappedJC;
 						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+						minDistanceYZ = distance - distanceX;
 					}
 
 					if (distanceX > minDistance) {
@@ -942,7 +1012,7 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohe
 
 
 
-__global__ void Kernel_MyNeighborListCal_SortXY_multipleBox(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* SortedIndexY, int* ReverseMap_SortedIndexY, int* Dev_NNearestNeighbor) {
+__global__ void Kernel_MyNeighborListCal_SortXY_multipleBox(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* SortedIndexY, int* ReverseMap_SortedIndexX, int* ReverseMap_SortedIndexY, int* Dev_NNearestNeighbor) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int cid = bid * BLOCKSIZE + tid;
@@ -1208,7 +1278,7 @@ __global__ void Kernel_MyNeighborListCal_SortXY_multipleBox(int BlockNumEachBox,
 
 }
 
-__global__ void Kernel_MyNeighborListCal_SortXY_multipleBox_noshare(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* SortedIndexY, int* ReverseMap_SortedIndexY, int* Dev_NNearestNeighbor) {
+__global__ void Kernel_MyNeighborListCal_SortXY_multipleBox_noshare(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX,  int* SortedIndexY, int* ReverseMap_SortedIndexX, int* ReverseMap_SortedIndexY, int* Dev_NNearestNeighbor) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int cid = bid * BLOCKSIZE + tid;
@@ -1536,7 +1606,7 @@ __global__ void Kernel_NormalCalcNeighborList_multipleBox_noShared(int BlockNumE
 
 }
 
-void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_Shared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_Shared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Host_NNearestNeighbor, float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
@@ -1544,6 +1614,9 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_Shared(int NClusters, i
 	int noone;
 	int BlockNumEachBox;
 	int BlockNumEachBoxtemp;
+	int* Dev_NNearestNeighbor;
+
+	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
 
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX,ReverseMap_SortedIndexX);
 
@@ -1587,7 +1660,7 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_Shared(int NClusters, i
 
 }
 
-void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Host_NNearestNeighbor, float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
@@ -1595,6 +1668,9 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(int NClusters,
 	int noone;
 	int BlockNumEachBox;
 	int BlockNumEachBoxtemp;
+	int* Dev_NNearestNeighbor;
+
+	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
 
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
 
@@ -1638,7 +1714,7 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared(int NClusters,
 
 }
 
-void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX,  int* Host_NNearestNeighbor, float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
@@ -1646,6 +1722,9 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen
 	int noone;
 	int BlockNumEachBox;
 	int BlockNumEachBoxtemp;
+	int* Dev_NNearestNeighbor;
+
+	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
 
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
 
@@ -1688,7 +1767,7 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen
 	cudaEventDestroy(StopEvent);
 }
 
-void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen_WithYLimit(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen_WithYLimit(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX,int* Host_NNearestNeighbor, float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
@@ -1702,6 +1781,9 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen
 	double* ExistedYZCount_Dev;
 	double* ExistedYZCount_Host;
 	double TotalExistedYZCount;
+	int* Dev_NNearestNeighbor;
+
+	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
 
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
 
@@ -1768,6 +1850,7 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_LeftRightCohen
 
 }
 
+
 void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int NClusters, 
 																			 int NBox, 
 																			 int **IDStartEnd_Host, 
@@ -1776,10 +1859,9 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int
 																			 double* ToSortDev_ClustersPosY,
 																			 double** Dev_ClustersPosXYZ,
 																			 int* SortedIndexX,
-																			 int* ReverseMap_SortedIndexX,
 																			 int* SortedIndexY,
+																			 int* ReverseMap_SortedIndexX,
 																			 int* ReverseMap_SortedIndexY,
-																			 int* Dev_NNearestNeighbor,
 																			 int* Host_NNearestNeighbor,
 																			 float &timerMyMethod) {
 	dim3 threads;
@@ -1793,10 +1875,14 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int
 	int TotalNXJumpAllBox;
 	int** IDSESeg_Dev;
 	int** JumpSegmentYRange_Dev;
+	int* Dev_NNearestNeighbor;
+
+	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
+
 
 	TotalNXJumpAllBox = 0;
 
-	XJumpStride = 2;
+	XJumpStride = 3;
 
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
 
@@ -1835,14 +1921,15 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int
 
 	cudaEventRecord(StartEvent, 0);
 
-	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit << < blocks, threads >> > (BlockNumEachBox, 
-																							 IDStartEnd_Dev, 
+	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit << < blocks, threads >> > (BlockNumEachBox,
+																							 IDStartEnd_Dev,
 																							 Dev_ClustersPosXYZ,
 																							 SortedIndexX,
+																							 SortedIndexY,
 																							 ReverseMap_SortedIndexY,
 																							 XJumpStride,
-																							 IDSESeg_Dev, 
-																							 JumpSegmentYRange_Dev,
+																							 IDSESeg_Dev,
+																							 JumpSegmentYRange_Dev, 
 																							 Dev_NNearestNeighbor);
 
 	cudaDeviceSynchronize();
@@ -1860,7 +1947,7 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int
 }
 
 
-void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_Shared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double* ToSortDev_ClustersPosY, double** Dev_ClustersPosXYZ, int* SortedIndexX,int* ReverseMap_SortedIndexX, int* SortedIndexY, int* ReverseMap_SortedIndexY, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_Shared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double* ToSortDev_ClustersPosY, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* SortedIndexY,int* ReverseMap_SortedIndexX, int* ReverseMap_SortedIndexY, int* Host_NNearestNeighbor, float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
@@ -1872,6 +1959,9 @@ void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_Shared(int NClusters, 
 	int *SortedIndexY_Host;
 	int *ReverseMap_SortedIndexX_Host;
 	int *ReverseMap_SortedIndexY_Host;
+	int* Dev_NNearestNeighbor;
+
+	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
 
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
 
@@ -1932,7 +2022,7 @@ void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_Shared(int NClusters, 
 
 	cudaEventRecord(StartEvent, 0);
 
-	Kernel_MyNeighborListCal_SortXY_multipleBox << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndexX, ReverseMap_SortedIndexX, SortedIndexY, ReverseMap_SortedIndexY, Dev_NNearestNeighbor);
+	Kernel_MyNeighborListCal_SortXY_multipleBox << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndexX, SortedIndexY, ReverseMap_SortedIndexX, ReverseMap_SortedIndexY, Dev_NNearestNeighbor);
 
 	cudaDeviceSynchronize();
 
@@ -1949,7 +2039,7 @@ void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_Shared(int NClusters, 
 
 }
 
-void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_noShared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double* ToSortDev_ClustersPosY, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* ReverseMap_SortedIndexX, int* SortedIndexY, int* ReverseMap_SortedIndexY, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerMyMethod) {
+void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_noShared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double* ToSortDev_ClustersPosX, double* ToSortDev_ClustersPosY, double** Dev_ClustersPosXYZ, int* SortedIndexX,  int* SortedIndexY, int* ReverseMap_SortedIndexX, int* ReverseMap_SortedIndexY,int* Host_NNearestNeighbor, float &timerMyMethod) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
@@ -1957,6 +2047,9 @@ void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_noShared(int NClusters
 	int noone;
 	int BlockNumEachBox;
 	int BlockNumEachBoxtemp;
+	int* Dev_NNearestNeighbor;
+
+	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
 
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosY, SortedIndexY, ReverseMap_SortedIndexY);
@@ -1984,7 +2077,7 @@ void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_noShared(int NClusters
 
 	cudaEventRecord(StartEvent, 0);
 
-	Kernel_MyNeighborListCal_SortXY_multipleBox_noshare << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndexX, ReverseMap_SortedIndexX, SortedIndexY, ReverseMap_SortedIndexY, Dev_NNearestNeighbor);
+	Kernel_MyNeighborListCal_SortXY_multipleBox_noshare << < blocks, threads >> > (BlockNumEachBox, IDStartEnd_Dev, Dev_ClustersPosXYZ, SortedIndexX,  SortedIndexY, ReverseMap_SortedIndexX, ReverseMap_SortedIndexY, Dev_NNearestNeighbor);
 
 	cudaDeviceSynchronize();
 
@@ -2003,12 +2096,15 @@ void My_NeighborListCal_ArbitrayBitonicSortXY_multipleBox_noShared(int NClusters
 
 
 
-void Common_NeighborListCal_multipleBox_Shared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerCommonGPU) {
+void Common_NeighborListCal_multipleBox_Shared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* Host_NNearestNeighbor, float &timerCommonGPU) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
 	int BlockNumEachBoxtemp;
 	int BlockNumEachBox;
+	int* Dev_NNearestNeighbor;
+
+	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
 
 	cudaEvent_t StartEvent;
 	cudaEvent_t StopEvent;
@@ -2044,12 +2140,15 @@ void Common_NeighborListCal_multipleBox_Shared(int NClusters, int NBox, int **ID
 	cudaMemcpy(Host_NNearestNeighbor, Dev_NNearestNeighbor, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
 }
 
-void Common_NeighborListCal_multipleBox_noShared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* Dev_NNearestNeighbor, int* Host_NNearestNeighbor, float &timerCommonGPU) {
+void Common_NeighborListCal_multipleBox_noShared(int NClusters, int NBox, int **IDStartEnd_Host, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* Host_NNearestNeighbor, float &timerCommonGPU) {
 	dim3 threads;
 	dim3 blocks;
 	int NB;
 	int BlockNumEachBoxtemp;
 	int BlockNumEachBox;
+	int* Dev_NNearestNeighbor;
+
+	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
 
 	cudaEvent_t StartEvent;
 	cudaEvent_t StopEvent;

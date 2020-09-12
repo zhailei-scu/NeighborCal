@@ -178,7 +178,6 @@
     <ClInclude Include="MyNeighborList.h" />
     <ClInclude Include="MyNeighborList_multipleBox.h" />
     <ClInclude Include="radixSort.h" />
-    <ClInclude Include="resource.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
