@@ -3,15 +3,18 @@
 
 #define BLOCKSIZE_TOAPPLY 1024
 
-__device__ inline void Comparetor_toApply(double &ValA, double &ValB, int dir) {
+__device__ inline void Comparetor_toApply(double &KeyA, double &KeyB, int &ValueA, int &ValueB,int dir) {
 	double temp;
-
+	int tempValue;
 	// dir 0 for decreasing , dir 1 for increasing
 
-	if ((ValA > ValB) == dir) {
-		temp = ValA;
-		ValA = ValB;
-		ValB = temp;
+	if ((KeyA > KeyB) == dir) {
+		temp = KeyA;
+		KeyA = KeyB;
+		KeyB = temp;
+		tempValue = ValueA;
+		ValueA = ValueB;
+		ValueB = tempValue;
 	}
 }
 
@@ -56,7 +59,7 @@ __device__ int GetIDStart_toApply(int NSize, int Stride, int cid) {
 }
 
 /*Used For Array Size less than BLOCKSIZE And is not of power 2*/
-__global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray, int** IDStartEnd_ForSort, int dir, double padNum) {
+__global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray,int* SortedIndex, int** IDStartEnd_ForSort, int dir, double padNum) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int tempDir;
@@ -67,6 +70,7 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray
 	int IDRelative;
 	int SegmentSize;
 	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
+	int __shared__ Share_SortedIndex[BLOCKSIZE_TOAPPLY];
 
 	ICStart = IDStartEnd_ForSort[bid][0];
 	ICEnd = IDStartEnd_ForSort[bid][1];
@@ -75,11 +79,13 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray
 	Share_TestArray[tid] = padNum;
 	if (IDRelative < ICEnd) {
 		Share_TestArray[tid] = Dev_TestArray[IDRelative];
+		Share_SortedIndex[tid] = SortedIndex[IDRelative];
 	}
 
 	Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = padNum;
 	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) < ICEnd) {
 		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2];
+		Share_SortedIndex[tid + BLOCKSIZE_TOAPPLY / 2] = SortedIndex[IDRelative + BLOCKSIZE_TOAPPLY / 2];
 	}
 
 	LastPowerTwo = 1;
@@ -99,7 +105,7 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray
 
 			pos = 2 * tid - (tid & (stride - 1));
 
-			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
+			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], Share_SortedIndex[pos], Share_SortedIndex[pos + stride], tempDir);
 
 		}
 	}
@@ -109,7 +115,7 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray
 
 		pos = 2 * tid - (tid & (stride - 1));
 
-		Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], dir);
+		Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride],Share_SortedIndex[pos], Share_SortedIndex[pos + stride], dir);
 
 	}
 
@@ -117,9 +123,11 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray
 
 	if (IDRelative < ICEnd) {
 		Dev_TestArray[IDRelative] = Share_TestArray[tid];
+		SortedIndex[IDRelative] = Share_SortedIndex[tid];
 	}
 	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) < ICEnd) {
 		Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
+		SortedIndex[IDRelative + BLOCKSIZE_TOAPPLY / 2] = Share_SortedIndex[tid + BLOCKSIZE_TOAPPLY / 2];
 	}
 }
 
@@ -168,7 +176,7 @@ __global__ void Kernel_GlobalMerge_Pre_toApply(int BlockNumEachBox,int Size, int
 }
 
 
-__global__ void Kernel_GlobalMerge_toApply(int BlockNumEachBox,int Size, int SegmentsStride, int** IDStartEnd_ForSort, double* Dev_TestArray, int dir, int *OEFlags) {
+__global__ void Kernel_GlobalMerge_toApply(int BlockNumEachBox,int Size, int SegmentsStride, int** IDStartEnd_ForSort, double* Dev_TestArray, int* SortedIndex, int dir, int *OEFlags) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int cid = bid * blockDim.x * blockDim.y + tid;
@@ -210,13 +218,13 @@ __global__ void Kernel_GlobalMerge_toApply(int BlockNumEachBox,int Size, int Seg
 	Stride = (ICLevelEnd - ICLevelStart + 1) / 2 + OEFlags[IDSegMap];
 
 	if (pos <= ICSegEnd && (pos + Stride) <= ICLevelEnd) {
-		Comparetor_toApply(Dev_TestArray[pos], Dev_TestArray[pos + Stride], tempDir);
+		Comparetor_toApply(Dev_TestArray[pos], Dev_TestArray[pos + Stride], SortedIndex[pos], SortedIndex[pos + Stride], tempDir);
 	}
 }
 
 
 /*Used For Array Size less than BLOCKSIZE And is not of power 2*/
-__global__ void Kernel_Shared_Merge_toApply(int BlockNumEachBox_Share,double* Dev_TestArray, int** IDStartEnd_ForSort, int dir, double padNum, int Size) {
+__global__ void Kernel_Shared_Merge_toApply(int BlockNumEachBox_Share,double* Dev_TestArray,int* SortedIndex, int** IDStartEnd_ForSort, int dir, double padNum, int Size) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int tempDir;
@@ -232,6 +240,7 @@ __global__ void Kernel_Shared_Merge_toApply(int BlockNumEachBox_Share,double* De
 	int IDSegRelative;
 
 	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
+	int __shared__ Share_SortedIndex[BLOCKSIZE_TOAPPLY];
 
 	IBox = bid / BlockNumEachBox_Share;
 	bid0 = IBox * BlockNumEachBox_Share;
@@ -247,11 +256,13 @@ __global__ void Kernel_Shared_Merge_toApply(int BlockNumEachBox_Share,double* De
 		Share_TestArray[tid] = tempPadNum;
 		if (IDRelative <= ICEnd) {
 			Share_TestArray[tid] = Dev_TestArray[IDRelative];
+			Share_SortedIndex[tid] = SortedIndex[IDRelative];
 		}
 
 		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = tempPadNum;
 		if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
 			Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2];
+			Share_SortedIndex[tid + BLOCKSIZE_TOAPPLY / 2] = SortedIndex[IDRelative + BLOCKSIZE_TOAPPLY / 2];
 		}
 
 		LastPowerTwo = 1;
@@ -270,7 +281,7 @@ __global__ void Kernel_Shared_Merge_toApply(int BlockNumEachBox_Share,double* De
 
 				pos = 2 * tid - (tid & (stride - 1));
 
-				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
+				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], Share_SortedIndex[pos], Share_SortedIndex[pos + stride], tempDir);
 
 			}
 		}
@@ -282,16 +293,18 @@ __global__ void Kernel_Shared_Merge_toApply(int BlockNumEachBox_Share,double* De
 
 			pos = 2 * tid - (tid & (stride - 1));
 
-			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
+			Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], Share_SortedIndex[pos], Share_SortedIndex[pos + stride], tempDir);
 		}
 
 		__syncthreads();
 
 		if (IDRelative <= ICEnd) {
 			Dev_TestArray[IDRelative] = Share_TestArray[tid];
+			SortedIndex[IDRelative] = Share_SortedIndex[tid];
 		}
 		if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
 			Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
+			SortedIndex[IDRelative + BLOCKSIZE_TOAPPLY / 2] = Share_SortedIndex[tid + BLOCKSIZE_TOAPPLY / 2];
 		}
 
 	}
@@ -299,7 +312,7 @@ __global__ void Kernel_Shared_Merge_toApply(int BlockNumEachBox_Share,double* De
 
 
 /*Used For Array Size less than BLOCKSIZE And is not of power 2*/
-__global__ void Kernel_Shared_Merge_Last_toApply(int BlockNumEachBox_Share,double* Dev_TestArray, int** IDStartEnd_ForSort, int dir, int Size) {
+__global__ void Kernel_Shared_Merge_Last_toApply(int BlockNumEachBox_Share,double* Dev_TestArray, int* SortedIndex, int** IDStartEnd_ForSort, int dir, int Size) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int tempDir;
@@ -324,6 +337,7 @@ __global__ void Kernel_Shared_Merge_Last_toApply(int BlockNumEachBox_Share,doubl
 	int IDSegRelative;
 
 	double __shared__ Share_TestArray[BLOCKSIZE_TOAPPLY];
+	int __shared__ Share_SortedIndex[BLOCKSIZE_TOAPPLY];
 
 	IBox = bid / BlockNumEachBox_Share;
 	bid0 = IBox * BlockNumEachBox_Share;
@@ -337,10 +351,12 @@ __global__ void Kernel_Shared_Merge_Last_toApply(int BlockNumEachBox_Share,doubl
 
 		if (ICRelative <= ICEnd) {
 			Share_TestArray[tid] = Dev_TestArray[ICRelative];
+			Share_SortedIndex[tid] = SortedIndex[ICRelative];
 		}
 
 		if ((ICRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
 			Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[ICRelative + BLOCKSIZE_TOAPPLY / 2];
+			Share_SortedIndex[tid + BLOCKSIZE_TOAPPLY / 2] = SortedIndex[ICRelative + BLOCKSIZE_TOAPPLY / 2];
 		}
 
 		tempDir = ((IDSegRelative / Size) % 2) ^ dir;
@@ -386,7 +402,7 @@ __global__ void Kernel_Shared_Merge_Last_toApply(int BlockNumEachBox_Share,doubl
 
 			if (pos <= tempICEnd) {
 
-				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], tempDir);
+				Comparetor_toApply(Share_TestArray[pos], Share_TestArray[pos + stride], Share_SortedIndex[pos], Share_SortedIndex[pos + stride], tempDir);
 
 			}
 
@@ -396,9 +412,11 @@ __global__ void Kernel_Shared_Merge_Last_toApply(int BlockNumEachBox_Share,doubl
 
 		if (ICRelative <= ICEnd) {
 			Dev_TestArray[ICRelative] = Share_TestArray[tid];
+			SortedIndex[ICRelative] = Share_SortedIndex[tid];
 		}
 		if ((ICRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
 			Dev_TestArray[ICRelative + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
+			SortedIndex[ICRelative + BLOCKSIZE_TOAPPLY / 2] = Share_SortedIndex[tid + BLOCKSIZE_TOAPPLY / 2];
 		}
 
 	}
@@ -575,7 +593,7 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 	}
 
 	for (int IBox = 0; IBox < NBox; IBox++) {
-		MaxSegmentsEachBox = IDStartEnd_ForBox_Host[IBox][1] - IDStartEnd_ForBox_Host[IBox][0] + 1;;
+		MaxSegmentsEachBox = IDStartEnd_ForBox_Host[IBox][1] - IDStartEnd_ForBox_Host[IBox][0] + 1;
 
 		Level = 0;
 		while (MaxSegmentsEachBox > BLOCKSIZE_TOAPPLY) {
@@ -619,11 +637,11 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 	threadsShared = dim3(BXShared, BYShared, 1);
 
 	if (MaxClusterNumEachBox <= BLOCKSIZE_TOAPPLY) {
-		Kernel_Shared_ArbitraryBitonicSort_toApply << <blocksShared, threadsShared >> > (ToSortDev_ClustersPosX, IDStartEnd_ForSort_Dev, dir, padNum);
+		Kernel_Shared_ArbitraryBitonicSort_toApply << <blocksShared, threadsShared >> > (ToSortDev_ClustersPosX, SortedIndex, IDStartEnd_ForSort_Dev, dir, padNum);
 	}
 	else {
 
-		Kernel_Shared_Merge_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, IDStartEnd_ForSort_Dev, dir, padNum, 1);
+		Kernel_Shared_Merge_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, SortedIndex, IDStartEnd_ForSort_Dev, dir, padNum, 1);
 
 		for (int Size = 2; Size <= MaxSegmentsNumEachBox; Size <<= 1) {
 
@@ -633,11 +651,11 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 
 					Kernel_GlobalMerge_Pre_toApply << <blocksGlobal, 1 >> > (MaxSegmentsNumEachBox,Size, Stride, IDStartEnd_ForSort_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
 
-					Kernel_GlobalMerge_toApply << <blocksGlobal, threadsGlobal >> > (MaxSegmentsNumEachBox,Size, Stride, IDStartEnd_ForSort_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
+					Kernel_GlobalMerge_toApply << <blocksGlobal, threadsGlobal >> > (MaxSegmentsNumEachBox,Size, Stride, IDStartEnd_ForSort_Dev, ToSortDev_ClustersPosX, SortedIndex, dir, OEFlags);
 				}
 				else {
 
-					Kernel_Shared_Merge_Last_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, IDStartEnd_ForSort_Dev, dir, Size);
+					Kernel_Shared_Merge_Last_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, SortedIndex, IDStartEnd_ForSort_Dev, dir, Size);
 
 					break;
 				}
