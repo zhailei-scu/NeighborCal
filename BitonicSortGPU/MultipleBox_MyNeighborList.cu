@@ -603,16 +603,16 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohe
 	}
 }
 
-__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(int BlockNumEachBox,
-																			  int **IDStartEnd_ForBox_Dev,
-																			  double** Dev_ClustersPosXYZ,
-																			  int* SortedIndexX,
-																			  int* SortedIndexY,
-																			  int* ReverseMap_SortedIndexY,
-																			  int XJumpStride,
-																			  int** IDSESeg_ForJump_Dev,
-																			  int** JumpSegYRange_Dev,
-																			  int* Dev_NNearestNeighbor) {
+__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit0(int BlockNumEachBox,
+	int **IDStartEnd_ForBox_Dev,
+	double** Dev_ClustersPosXYZ,
+	int* SortedIndexX,
+	int* SortedIndexY,
+	int* ReverseMap_SortedIndexY,
+	int XJumpStride,
+	int** IDSESeg_ForJump_Dev,
+	int** JumpSegYRange_Dev,
+	int* Dev_NNearestNeighbor) {
 	int tid = threadIdx.y*blockDim.x + threadIdx.x;
 	int bid = blockIdx.y*gridDim.x + blockIdx.x;
 	int cid = bid * BLOCKSIZE + tid;
@@ -676,6 +676,7 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 
 		/*Right Hand Searching*/
 		for (int JSeg = ISeg; JSeg <= SegEndID; JSeg++) {
+
 			JCStart = scid + (JSeg - SegStartID)*XJumpStride;
 			if (JCStart < (IC + 1)) JCStart = IC + 1;
 			JCEnd = scid + (JSeg - SegStartID + 1)*XJumpStride - 1;
@@ -689,7 +690,7 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
 				distanceY = distanceY * distanceY;
 
-				OmitFlag = ((maxY < minSortedYIndex) && (distanceY >= minDistanceYZ)&&(JSeg!= ISeg));
+				OmitFlag = ((maxY < minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
 			}
 
 			if (ICY < minSortedYIndex) {
@@ -697,7 +698,7 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
 				distanceY = distanceY * distanceY;
 
-				OmitFlag = ((minY> minSortedYIndex)&&(distanceY >= minDistanceYZ) && (JSeg != ISeg));
+				OmitFlag = ((minY > minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
 			}
 
 			if (JCStart <= JCEnd) {
@@ -713,11 +714,12 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 
 				distance = distanceX + distanceY + distanceZ;
 
+				minDistanceYZ = distance - distanceX;
+
 				if (minDistance > distance) {
 					minDistance = distance;
 					NNID = MappedJC;
 					minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
-					minDistanceYZ = distance - distanceX;
 				}
 
 				if (distanceX > minDistance) {
@@ -725,9 +727,10 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 				}
 			}
 
-			OmitFlag = false;
+			//OmitFlag = false;
 			if (!OmitFlag) {
-				for (int JC = JCStart+1;JC<= JCEnd;JC++) {
+
+				for (int JC = JCStart + 1; JC <= JCEnd; JC++) {
 					MappedJC = SortedIndexX[JC];
 
 					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
@@ -740,11 +743,12 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 
 					distance = distanceX + distanceY + distanceZ;
 
+					minDistanceYZ = distance - distanceX;
+
 					if (minDistance > distance) {
 						minDistance = distance;
 						NNID = MappedJC;
 						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
-						minDistanceYZ = distance - distanceX;
 					}
 
 					if (distanceX > minDistance) {
@@ -801,11 +805,12 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 
 				distance = distanceX + distanceY + distanceZ;
 
+				minDistanceYZ = distance - distanceX;
+
 				if (minDistance > distance) {
 					minDistance = distance;
 					NNID = MappedJC;
 					minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
-					minDistanceYZ = distance - distanceX;
 				}
 
 				if (distanceX > minDistance) {
@@ -814,9 +819,660 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 
 			}
 
-			OmitFlag = false;
+			//OmitFlag = false;
 
 			if (!OmitFlag) {
+
+				for (int JC = JCEnd - 1; JC >= JCStart; JC--) {
+					MappedJC = SortedIndexX[JC];
+
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					minDistanceYZ = distance - distanceX;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+
+
+				}
+
+
+			}
+
+		}
+
+		Dev_NNearestNeighbor[MapedIdex] = NNID;
+	}
+}
+
+__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit1(int BlockNumEachBox,
+	int **IDStartEnd_ForBox_Dev,
+	double** Dev_ClustersPosXYZ,
+	int* SortedIndexX,
+	int* SortedIndexY,
+	int* SortedIndexZ,
+	int* ReverseMap_SortedIndexY,
+	int* ReverseMap_SortedIndexZ,
+	int XJumpStride,
+	int** IDSESeg_ForJump_Dev,
+	int** JumpSegYRange_Dev,
+	int** JumpSegZRange_Dev,
+	int* Dev_NNearestNeighbor) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * BLOCKSIZE + tid;
+	double Pos_X;
+	double Pos_Y;
+	double Pos_Z;
+	int MappedJC;
+	double distance;
+	double minDistance;
+	double minDistanceYZ;
+	int minSortedYIndex;
+	int minSortedZIndex;
+	double distanceX;
+	double distanceY;
+	double distanceZ;
+	int NNID;
+	int MapedIdex;
+	int IBox;
+	int scid;
+	int ecid;
+	int bid0;
+	int IC;
+	int SegStartID;
+	int SegEndID;
+	int ISeg;
+	int JCStart;
+	int JCEnd;
+	int minY;
+	int maxY;
+	int minZ;
+	int maxZ;
+	bool OmitFlag;
+	int ICY;
+	int ICZ;
+
+	IBox = bid / BlockNumEachBox;
+
+	scid = IDStartEnd_ForBox_Dev[IBox][0];
+	ecid = IDStartEnd_ForBox_Dev[IBox][1];
+
+	bid0 = IBox * BlockNumEachBox;
+
+	IC = scid + (cid - bid0 * BLOCKSIZE);
+
+	minDistance = 1.E32;
+
+	minDistanceYZ = 1.E32;
+
+	minSortedYIndex = 1E16;
+
+	if (IC <= ecid) {
+
+		MapedIdex = SortedIndexX[IC];
+
+		ICY = ReverseMap_SortedIndexY[MapedIdex];
+
+		ICZ = ReverseMap_SortedIndexZ[MapedIdex];
+
+		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
+		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
+		Pos_Z = Dev_ClustersPosXYZ[MapedIdex][2];
+
+		SegStartID = IDSESeg_ForJump_Dev[IBox][0];
+		SegEndID = IDSESeg_ForJump_Dev[IBox][1];
+
+		ISeg = SegStartID + (cid - bid0 * BLOCKSIZE) / XJumpStride;
+
+		/*Right Hand Searching*/
+		for (int JSeg = ISeg; JSeg <= SegEndID; JSeg++) {
+
+			JCStart = scid + (JSeg - SegStartID)*XJumpStride;
+			if (JCStart < (IC + 1)) JCStart = IC + 1;
+			JCEnd = scid + (JSeg - SegStartID + 1)*XJumpStride - 1;
+			if (JCEnd > ecid) JCEnd = ecid;
+
+			minY = JumpSegYRange_Dev[JSeg][0];
+			maxY = JumpSegYRange_Dev[JSeg][1];
+
+			if (ICY > minSortedYIndex) {
+				MappedJC = SortedIndexY[maxY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((maxY < minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
+			}
+
+			if (ICY < minSortedYIndex) {
+				MappedJC = SortedIndexY[minY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((minY > minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
+			}
+
+			if (!OmitFlag) {
+				minZ = JumpSegZRange_Dev[JSeg][0];
+				maxZ = JumpSegZRange_Dev[JSeg][1];
+
+				if (ICZ > minSortedZIndex) {
+					MappedJC = SortedIndexZ[maxZ];
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+					distanceZ = distanceZ * distanceZ;
+
+					OmitFlag = ((maxZ < minSortedZIndex) && (distanceZ >= minDistanceYZ) && (JSeg != ISeg));
+				}
+
+				if (ICZ < minSortedZIndex) {
+					MappedJC = SortedIndexZ[minZ];
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+					distanceZ = distanceZ * distanceZ;
+
+					OmitFlag = ((minZ > minSortedZIndex) && (distanceZ >= minDistanceYZ) && (JSeg != ISeg));
+				}
+			}
+
+			if (JCStart <= JCEnd) {
+				MappedJC = SortedIndexX[JCStart];
+
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				minDistanceYZ = distance - distanceX;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+					minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+					minSortedZIndex = ReverseMap_SortedIndexZ[MappedJC];
+				}
+
+				if (distanceX > minDistance) {
+					break;
+				}
+			}
+
+			//OmitFlag = false;
+			if (!OmitFlag) {
+
+				for (int JC = JCStart + 1; JC <= JCEnd; JC++) {
+					MappedJC = SortedIndexX[JC];
+
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					minDistanceYZ = distance - distanceX;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+						minSortedZIndex = ReverseMap_SortedIndexZ[MappedJC];
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+				}
+
+			}
+
+		}
+
+		minDistanceYZ = 1.E32;
+		minSortedYIndex = 1E16;
+		minSortedZIndex = 1E16;
+		///*Left Hand Searching*/
+		for (int JSeg = ISeg; JSeg >= SegStartID; JSeg--) {
+
+			JCStart = scid + (JSeg - SegStartID)*XJumpStride;
+			if (JCStart > ecid) JCStart = ecid;
+			JCEnd = scid + (JSeg - SegStartID + 1)*XJumpStride - 1;
+			if (JCEnd > (IC - 1)) JCEnd = IC - 1;
+
+			minY = JumpSegYRange_Dev[JSeg][0];
+			maxY = JumpSegYRange_Dev[JSeg][1];
+
+			if (ICY > minSortedYIndex) {
+				MappedJC = SortedIndexY[maxY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((maxY < minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
+			}
+
+			if (ICY < minSortedYIndex) {
+				MappedJC = SortedIndexY[minY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((minY > minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
+			}
+
+			if (!OmitFlag) {
+				minZ = JumpSegZRange_Dev[JSeg][0];
+				maxZ = JumpSegZRange_Dev[JSeg][1];
+
+				if (ICZ > minSortedZIndex) {
+					MappedJC = SortedIndexZ[maxZ];
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+					distanceZ = distanceZ * distanceZ;
+
+					OmitFlag = ((maxZ < minSortedZIndex) && (distanceZ >= minDistanceYZ) && (JSeg != ISeg));
+				}
+
+				if (ICZ < minSortedZIndex) {
+					MappedJC = SortedIndexZ[minZ];
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+					distanceZ = distanceZ * distanceZ;
+
+					OmitFlag = ((minZ > minSortedZIndex) && (distanceZ >= minDistanceYZ) && (JSeg != ISeg));
+				}
+
+			}
+
+			//printf("%d %d %d %d %d %d %d %d %d %d\n", IC, MapedIdex, ICY, SegStartID, SegEndID, ISeg, JCStart, JCEnd, minY, maxY);
+
+			if (JCEnd >= JCStart) {
+
+				MappedJC = SortedIndexX[JCEnd];
+
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				minDistanceYZ = distance - distanceX;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+					minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+					minSortedZIndex = ReverseMap_SortedIndexZ[MappedJC];
+				}
+
+				if (distanceX > minDistance) {
+					break;
+				}
+
+			}
+
+			//OmitFlag = false;
+
+			if (!OmitFlag) {
+
+				for (int JC = JCEnd - 1; JC >= JCStart; JC--) {
+					MappedJC = SortedIndexX[JC];
+
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					minDistanceYZ = distance - distanceX;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+						minSortedZIndex = ReverseMap_SortedIndexZ[MappedJC];
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+
+
+				}
+
+
+			}
+
+		}
+
+		Dev_NNearestNeighbor[MapedIdex] = NNID;
+	}
+}
+
+__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit2(int BlockNumEachBox,
+																			  int **IDStartEnd_ForBox_Dev,
+																			  double** Dev_ClustersPosXYZ,
+																			  int* SortedIndexX,
+																			  int* SortedIndexY,
+																			  int* SortedIndexZ,
+																			  int* ReverseMap_SortedIndexY,
+																			  int* ReverseMap_SortedIndexZ,
+																			  int XJumpStride,
+																			  int** IDSESeg_ForJump_Dev,
+																			  int** JumpSegYRange_Dev,
+																		      int** JumpSegZRange_Dev,
+																			  int* Dev_NNearestNeighbor,
+																			  double* omitPercent,
+																			  int* omitCount, int* RemindCount, int* TotalCount) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * BLOCKSIZE + tid;
+	double Pos_X;
+	double Pos_Y;
+	double Pos_Z;
+	int MappedJC;
+	double distance;
+	double minDistance;
+	double minDistanceYZ;
+	int minSortedYIndex;
+	int minSortedZIndex;
+	double distanceX;
+	double distanceY;
+	double distanceZ;
+	int NNID;
+	int MapedIdex;
+	int IBox;
+	int scid;
+	int ecid;
+	int bid0;
+	int IC;
+	int SegStartID;
+	int SegEndID;
+	int ISeg;
+	int JCStart;
+	int JCEnd;
+	int minY;
+	int maxY;
+	int minZ;
+	int maxZ;
+	bool OmitFlag;
+	int ICY;
+	int ICZ;
+	int TheTotalCout;
+	int TheOmitCount;
+	int TheRemindCount;
+
+	TheTotalCout = 0;
+	TheOmitCount = 0;
+	TheRemindCount = 0;
+
+	IBox = bid / BlockNumEachBox;
+
+	scid = IDStartEnd_ForBox_Dev[IBox][0];
+	ecid = IDStartEnd_ForBox_Dev[IBox][1];
+
+	bid0 = IBox * BlockNumEachBox;
+
+	IC = scid + (cid - bid0 * BLOCKSIZE);
+
+	minDistance = 1.E32;
+
+	minDistanceYZ = 1.E32;
+
+	minSortedYIndex = 1E16;
+
+	if (IC <= ecid) {
+
+		MapedIdex = SortedIndexX[IC];
+
+		ICY = ReverseMap_SortedIndexY[MapedIdex];
+
+		ICZ = ReverseMap_SortedIndexZ[MapedIdex];
+
+		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
+		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
+		Pos_Z = Dev_ClustersPosXYZ[MapedIdex][2];
+
+		SegStartID = IDSESeg_ForJump_Dev[IBox][0];
+		SegEndID = IDSESeg_ForJump_Dev[IBox][1];
+
+		ISeg = SegStartID + (cid - bid0 * BLOCKSIZE) / XJumpStride;
+
+		/*Right Hand Searching*/
+		for (int JSeg = ISeg; JSeg <= SegEndID; JSeg++) {
+
+			TheTotalCout++;
+
+
+			JCStart = scid + (JSeg - SegStartID)*XJumpStride;
+			if (JCStart < (IC + 1)) JCStart = IC + 1;
+			JCEnd = scid + (JSeg - SegStartID + 1)*XJumpStride - 1;
+			if (JCEnd > ecid) JCEnd = ecid;
+
+			minY = JumpSegYRange_Dev[JSeg][0];
+			maxY = JumpSegYRange_Dev[JSeg][1];
+
+			if (ICY > minSortedYIndex) {
+				MappedJC = SortedIndexY[maxY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((maxY < minSortedYIndex) && (distanceY >= minDistanceYZ)&&(JSeg!= ISeg));
+			}
+
+			if (ICY < minSortedYIndex) {
+				MappedJC = SortedIndexY[minY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((minY> minSortedYIndex)&&(distanceY >= minDistanceYZ) && (JSeg != ISeg));
+			}
+
+			if (!OmitFlag) {
+				minZ = JumpSegZRange_Dev[JSeg][0];
+				maxZ = JumpSegZRange_Dev[JSeg][1];
+
+				if (ICZ > minSortedZIndex) {
+					MappedJC = SortedIndexZ[maxZ];
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+					distanceZ = distanceZ * distanceZ;
+
+					OmitFlag = ((maxZ < minSortedZIndex) && (distanceZ >= minDistanceYZ) && (JSeg != ISeg));
+				}
+
+				if (ICZ < minSortedZIndex) {
+					MappedJC = SortedIndexZ[minZ];
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+					distanceZ = distanceZ * distanceZ;
+
+					OmitFlag = ((minZ > minSortedZIndex) && (distanceZ >= minDistanceYZ) && (JSeg != ISeg));
+				}
+			}
+
+			if (JCStart <= JCEnd) {
+				MappedJC = SortedIndexX[JCStart];
+
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				minDistanceYZ = distance - distanceX;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+					minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+					minSortedZIndex = ReverseMap_SortedIndexZ[MappedJC];
+				}
+
+				if (distanceX > minDistance) {
+					break;
+				}
+			}
+
+			if (true == OmitFlag) {
+				TheOmitCount++;
+			}
+
+			//OmitFlag = false;
+			if (!OmitFlag) {
+				TheRemindCount++;
+
+				for (int JC = JCStart+1;JC<= JCEnd;JC++) {
+					MappedJC = SortedIndexX[JC];
+
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					minDistanceYZ = distance - distanceX;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+						minSortedZIndex = ReverseMap_SortedIndexZ[MappedJC];
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+				}
+
+			}
+
+		}
+
+		minDistanceYZ = 1.E32;
+		minSortedYIndex = 1E16;
+		minSortedZIndex = 1E16;
+		///*Left Hand Searching*/
+		for (int JSeg = ISeg; JSeg >= SegStartID; JSeg--) {
+
+			TheTotalCout++;
+
+			JCStart = scid + (JSeg - SegStartID)*XJumpStride;
+			if (JCStart > ecid) JCStart = ecid;
+			JCEnd = scid + (JSeg - SegStartID + 1)*XJumpStride - 1;
+			if (JCEnd > (IC - 1)) JCEnd = IC - 1;
+
+			minY = JumpSegYRange_Dev[JSeg][0];
+			maxY = JumpSegYRange_Dev[JSeg][1];
+
+			if (ICY > minSortedYIndex) {
+				MappedJC = SortedIndexY[maxY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((maxY < minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
+			}
+
+			if (ICY < minSortedYIndex) {
+				MappedJC = SortedIndexY[minY];
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceY = distanceY * distanceY;
+
+				OmitFlag = ((minY > minSortedYIndex) && (distanceY >= minDistanceYZ) && (JSeg != ISeg));
+			}
+
+			if (!OmitFlag) {
+				minZ = JumpSegZRange_Dev[JSeg][0];
+				maxZ = JumpSegZRange_Dev[JSeg][1];
+
+				if (ICZ > minSortedZIndex) {
+					MappedJC = SortedIndexZ[maxZ];
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+					distanceZ = distanceZ * distanceZ;
+
+					OmitFlag = ((maxZ < minSortedZIndex) && (distanceZ >= minDistanceYZ) && (JSeg != ISeg));
+				}
+
+				if (ICZ < minSortedZIndex) {
+					MappedJC = SortedIndexZ[minZ];
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+					distanceZ = distanceZ * distanceZ;
+
+					OmitFlag = ((minZ > minSortedZIndex) && (distanceZ >= minDistanceYZ) && (JSeg != ISeg));
+				}
+
+			}
+
+			//printf("%d %d %d %d %d %d %d %d %d %d\n", IC, MapedIdex, ICY, SegStartID, SegEndID, ISeg, JCStart, JCEnd, minY, maxY);
+
+			if (JCEnd >= JCStart) {
+
+				MappedJC = SortedIndexX[JCEnd];
+
+				distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+				distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+				distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+				distanceX = distanceX * distanceX;
+				distanceY = distanceY * distanceY;
+				distanceZ = distanceZ * distanceZ;
+
+				distance = distanceX + distanceY + distanceZ;
+
+				minDistanceYZ = distance - distanceX;
+
+				if (minDistance > distance) {
+					minDistance = distance;
+					NNID = MappedJC;
+					minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
+					minSortedZIndex = ReverseMap_SortedIndexZ[MappedJC];
+				}
+
+				if (distanceX > minDistance) {
+					break;
+				}
+
+			}
+
+			if (true == OmitFlag) {
+				TheOmitCount++;
+			}
+
+			//OmitFlag = false;
+
+			if (!OmitFlag) {
+				TheRemindCount++;
 
 				for (int JC = JCEnd-1; JC >= JCStart; JC--) {
 					MappedJC = SortedIndexX[JC];
@@ -831,17 +1487,376 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 
 					distance = distanceX + distanceY + distanceZ;
 
+					minDistanceYZ = distance - distanceX;
+
 					if (minDistance > distance) {
 						minDistance = distance;
 						NNID = MappedJC;
 						minSortedYIndex = ReverseMap_SortedIndexY[MappedJC];
-						minDistanceYZ = distance - distanceX;
+						minSortedZIndex = ReverseMap_SortedIndexZ[MappedJC];
 					}
 
 					if (distanceX > minDistance) {
 						break;
 					}
+
+
 				}
+
+
+			}
+
+		}
+
+		Dev_NNearestNeighbor[MapedIdex] = NNID;
+		omitPercent[MapedIdex] = double(TheOmitCount)/double(TheTotalCout);
+		omitCount[MapedIdex] = TheOmitCount;
+		RemindCount[MapedIdex] = TheRemindCount;
+		TotalCount[MapedIdex] = TheTotalCout;
+	}
+}
+
+__global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit3(int BlockNumEachBox,
+	int **IDStartEnd_ForBox_Dev,
+	double** Dev_ClustersPosXYZ,
+	int* SortedIndexX,
+	int* SortedIndexY,
+	int* ReverseMap_SortedIndexY,
+	int XJumpStride,
+	int** IDSESeg_ForJump_Dev,
+	int** JumpSegYRange_Dev,
+	int* Dev_NNearestNeighbor) {
+	int tid = threadIdx.y*blockDim.x + threadIdx.x;
+	int bid = blockIdx.y*gridDim.x + blockIdx.x;
+	int cid = bid * BLOCKSIZE + tid;
+	double Pos_X;
+	double Pos_Y;
+	double Pos_Z;
+	int MappedJC;
+	double distance;
+	double minDistance;
+	double minDistanceYZ;
+	double distanceX;
+	double distanceY;
+	double distanceZ;
+	int NNID;
+	int MapedIdex;
+	int IBox;
+	int scid;
+	int ecid;
+	int bid0;
+	int IC;
+	int SegStartID;
+	int SegEndID;
+	int ISeg;
+	int JCStart;
+	int JCEnd;
+	int minY;
+	int maxY;
+	bool OmitFlag;
+	int ICY;
+	int RemindJC[2];
+	int NRemind;
+
+	IBox = bid / BlockNumEachBox;
+
+	scid = IDStartEnd_ForBox_Dev[IBox][0];
+	ecid = IDStartEnd_ForBox_Dev[IBox][1];
+
+	bid0 = IBox * BlockNumEachBox;
+
+	IC = scid + (cid - bid0 * BLOCKSIZE);
+
+	minDistance = 1.E32;
+
+	minDistanceYZ = 1.E32;
+
+	if (IC <= ecid) {
+
+		MapedIdex = SortedIndexX[IC];
+
+		ICY = ReverseMap_SortedIndexY[MapedIdex];
+
+		Pos_X = Dev_ClustersPosXYZ[MapedIdex][0];
+		Pos_Y = Dev_ClustersPosXYZ[MapedIdex][1];
+		Pos_Z = Dev_ClustersPosXYZ[MapedIdex][2];
+
+		SegStartID = IDSESeg_ForJump_Dev[IBox][0];
+		SegEndID = IDSESeg_ForJump_Dev[IBox][1];
+
+		ISeg = SegStartID + (cid - bid0 * BLOCKSIZE) / XJumpStride;
+
+		JCStart = scid + (ISeg - SegStartID)*XJumpStride;
+		if (JCStart > ecid) JCStart = ecid;
+		JCEnd = scid + (ISeg - SegStartID + 1)*XJumpStride - 1;
+		if (JCEnd < scid) JCEnd = scid;
+
+		if (IC != JCStart) {
+
+			MappedJC = SortedIndexX[JCStart];
+
+			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+			distanceX = distanceX * distanceX;
+			distanceY = distanceY * distanceY;
+			distanceZ = distanceZ * distanceZ;
+
+			distance = distanceX + distanceY + distanceZ;
+
+			minDistanceYZ = distance - distanceX;
+
+			if (minDistance > distance) {
+				minDistance = distance;
+				NNID = MappedJC;
+			}
+
+		}
+
+		if (IC != JCEnd) {
+
+			MappedJC = SortedIndexX[JCEnd];
+
+			distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+			distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+			distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+			distanceX = distanceX * distanceX;
+			distanceY = distanceY * distanceY;
+			distanceZ = distanceZ * distanceZ;
+
+			distance = distanceX + distanceY + distanceZ;
+
+			minDistanceYZ = distance - distanceX;
+
+			if (minDistance > distance) {
+				minDistance = distance;
+				NNID = MappedJC;
+			}
+
+		}
+
+		/*Right Hand Searching*/
+		for (int JSeg = ISeg+1; JSeg <= SegEndID; JSeg++) {
+
+			minY = JumpSegYRange_Dev[JSeg][0];
+			maxY = JumpSegYRange_Dev[JSeg][1];
+
+			if (maxY > 0) {
+
+				NRemind = 2;
+
+				OmitFlag = false;
+
+				RemindJC[0] = minY;
+				RemindJC[1] = maxY;
+
+				if (ICY > maxY) {
+					MappedJC = SortedIndexY[maxY];
+
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					minDistanceYZ = distance - distanceX;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+
+					OmitFlag = ((distanceY >= minDistanceYZ) && (JSeg != ISeg));
+
+					RemindJC[0] = minY;
+
+					NRemind--;
+				}
+
+				if (ICY < minY) {
+					MappedJC = SortedIndexY[minY];
+
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					minDistanceYZ = distance - distanceX;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+
+					OmitFlag = ((distanceY >= minDistanceYZ) && (JSeg != ISeg));
+
+					RemindJC[0] = maxY;
+
+					NRemind--;
+				}
+
+				//OmitFlag = false;
+				if (!OmitFlag) {
+
+					for (int i = 0; i < NRemind; i++) {
+						MappedJC = SortedIndexY[RemindJC[i]];
+
+
+						distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+						distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+						distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+						distanceX = distanceX * distanceX;
+						distanceY = distanceY * distanceY;
+						distanceZ = distanceZ * distanceZ;
+
+						distance = distanceX + distanceY + distanceZ;
+
+						minDistanceYZ = distance - distanceX;
+
+						if (minDistance > distance) {
+							minDistance = distance;
+							NNID = MappedJC;
+						}
+
+						if (distanceX > minDistance) {
+							break;
+						}
+
+					}
+
+				}
+
+			}
+		}
+
+		///*Left Hand Searching*/
+		for (int JSeg = ISeg-1; JSeg >= SegStartID; JSeg--) {
+
+			minY = JumpSegYRange_Dev[JSeg][0];
+			maxY = JumpSegYRange_Dev[JSeg][1];
+
+			if (maxY > 0) {
+
+				NRemind = 2;
+
+				OmitFlag = false;
+
+				RemindJC[0] = minY;
+				RemindJC[1] = maxY;
+
+				if (ICY > maxY) {
+					MappedJC = SortedIndexY[maxY];
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					minDistanceYZ = distance - distanceX;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+
+					OmitFlag = ((distanceY >= minDistanceYZ) && (JSeg != ISeg));
+
+					RemindJC[0] = minY;
+
+					NRemind--;
+				}
+
+				if (ICY < minY) {
+					MappedJC = SortedIndexY[minY];
+
+					distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+					distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+					distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+					distanceX = distanceX * distanceX;
+					distanceY = distanceY * distanceY;
+					distanceZ = distanceZ * distanceZ;
+
+					distance = distanceX + distanceY + distanceZ;
+
+					minDistanceYZ = distance - distanceX;
+
+					if (minDistance > distance) {
+						minDistance = distance;
+						NNID = MappedJC;
+					}
+
+					if (distanceX > minDistance) {
+						break;
+					}
+
+					OmitFlag = ((distanceY >= minDistanceYZ) && (JSeg != ISeg));
+
+					RemindJC[0] = maxY;
+
+					NRemind--;
+				}
+
+				//OmitFlag = false;
+				if (!OmitFlag) {
+
+					for (int i = 0; i < NRemind; i++) {
+						MappedJC = SortedIndexY[RemindJC[i]];
+
+
+						distanceX = Dev_ClustersPosXYZ[MappedJC][0] - Pos_X;
+						distanceY = Dev_ClustersPosXYZ[MappedJC][1] - Pos_Y;
+						distanceZ = Dev_ClustersPosXYZ[MappedJC][2] - Pos_Z;
+
+						distanceX = distanceX * distanceX;
+						distanceY = distanceY * distanceY;
+						distanceZ = distanceZ * distanceZ;
+
+						distance = distanceX + distanceY + distanceZ;
+
+						minDistanceYZ = distance - distanceX;
+
+						if (minDistance > distance) {
+							minDistance = distance;
+							NNID = MappedJC;
+						}
+
+						if (distanceX > minDistance) {
+							break;
+						}
+
+					}
+
+				}
+
 			}
 
 		}
@@ -849,6 +1864,15 @@ __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit(in
 		Dev_NNearestNeighbor[MapedIdex] = NNID;
 	}
 }
+
+
+
+
+
+
+
+
+
 
 
 __global__ void Kernel_MyNeighborListCal_SortX_multipleBox_noshare_LeftRightCohen_WithYLimit(int BlockNumEachBox, int **IDStartEnd_Dev, double** Dev_ClustersPosXYZ, int* SortedIndexX, int* Dev_NNearestNeighbor,double *CountEixsted, double *CountEixstedYZ) {
@@ -1857,11 +2881,14 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int
 																			 int **IDStartEnd_Dev, 
 																			 double* ToSortDev_ClustersPosX,
 																			 double* ToSortDev_ClustersPosY,
+																			 double* ToSortDev_ClustersPosZ,
 																			 double** Dev_ClustersPosXYZ,
 																			 int* SortedIndexX,
 																			 int* SortedIndexY,
+																			 int* SortedIndexZ,
 																			 int* ReverseMap_SortedIndexX,
 																			 int* ReverseMap_SortedIndexY,
+																			 int* ReverseMap_SortedIndexZ,
 																			 int* Host_NNearestNeighbor,
 																			 float &timerMyMethod) {
 	dim3 threads;
@@ -1875,18 +2902,40 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int
 	int TotalNXJumpAllBox;
 	int** IDSESeg_Dev;
 	int** JumpSegmentYRange_Dev;
+	int** JumpSegmentZRange_Dev;
 	int* Dev_NNearestNeighbor;
+	double *omitPercent_Dev;
+	double *omitPercent_Host;
+	int* omitCount_Dev;
+	int* RemindCount_Dev;
+	int* TotalCount_Dev;
+	int* omitCount_Host;
+	int* RemindCount_Host;
+	int* TotalCount_Host;
 
 	cudaMalloc((void**)&Dev_NNearestNeighbor, NClusters * sizeof(int));
 
+	cudaMalloc((void**)&omitPercent_Dev, NClusters * sizeof(double));
+	omitPercent_Host = new double[NClusters];
+
+	cudaMalloc((void**)&omitCount_Dev, NClusters * sizeof(int));
+	omitCount_Host = new int[NClusters];
+
+	cudaMalloc((void**)&RemindCount_Dev, NClusters * sizeof(int));
+	RemindCount_Host = new int[NClusters];
+
+	cudaMalloc((void**)&TotalCount_Dev, NClusters * sizeof(int));
+	TotalCount_Host = new int[NClusters];
 
 	TotalNXJumpAllBox = 0;
 
-	XJumpStride = 3;
+	XJumpStride = 2;
 
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosX, SortedIndexX, ReverseMap_SortedIndexX);
 
 	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosY, SortedIndexY, ReverseMap_SortedIndexY);
+
+	SimpleSort_multipleBox(NClusters, NBox, IDStartEnd_Host, ToSortDev_ClustersPosZ, SortedIndexZ, ReverseMap_SortedIndexZ);
 
 	for (int IBox = 0; IBox < NBox; IBox++) {
 		TotalNXJumpAllBox = TotalNXJumpAllBox + (IDStartEnd_Host[IBox][1] - IDStartEnd_Host[IBox][0]) / XJumpStride + 1;
@@ -1897,6 +2946,10 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int
 	cudaMalloc((void**)&JumpSegmentYRange_Dev, TotalNXJumpAllBox * sizeof(int*));
 
 	JumpSegmentYRange_multipleBox(NClusters,NBox, IDStartEnd_Host, SortedIndexX, ReverseMap_SortedIndexY, XJumpStride, IDSESeg_Dev, JumpSegmentYRange_Dev);
+
+	cudaMalloc((void**)&JumpSegmentZRange_Dev, TotalNXJumpAllBox * sizeof(int*));
+
+	JumpSegmentYRange_multipleBox(NClusters, NBox, IDStartEnd_Host, SortedIndexX, ReverseMap_SortedIndexZ, XJumpStride, IDSESeg_Dev, JumpSegmentZRange_Dev);
 
 	cudaEvent_t StartEvent;
 	cudaEvent_t StopEvent;
@@ -1921,16 +2974,55 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int
 
 	cudaEventRecord(StartEvent, 0);
 
-	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit << < blocks, threads >> > (BlockNumEachBox,
-																							 IDStartEnd_Dev,
-																							 Dev_ClustersPosXYZ,
-																							 SortedIndexX,
-																							 SortedIndexY,
-																							 ReverseMap_SortedIndexY,
-																							 XJumpStride,
-																							 IDSESeg_Dev,
-																							 JumpSegmentYRange_Dev, 
-																							 Dev_NNearestNeighbor);
+
+	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit0 << < blocks, threads >> > (BlockNumEachBox,
+		IDStartEnd_Dev,
+		Dev_ClustersPosXYZ,
+		SortedIndexX,
+		SortedIndexY,
+		ReverseMap_SortedIndexY,
+		XJumpStride,
+		IDSESeg_Dev,
+		JumpSegmentYRange_Dev,
+		Dev_NNearestNeighbor);
+
+
+	//Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit1 << < blocks, threads >> > (BlockNumEachBox,
+	//																						 IDStartEnd_Dev,
+	//																						 Dev_ClustersPosXYZ,
+	//																						 SortedIndexX,
+	//																						 SortedIndexY,
+	//																						 SortedIndexZ,
+	//																						 ReverseMap_SortedIndexY,
+	//																						 ReverseMap_SortedIndexZ,
+	//																						 XJumpStride,
+	//																						 IDSESeg_Dev,
+	//																						 JumpSegmentYRange_Dev, JumpSegmentZRange_Dev,
+	//																						 Dev_NNearestNeighbor);
+/*
+	Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit2 << < blocks, threads >> > (BlockNumEachBox,
+		IDStartEnd_Dev,
+		Dev_ClustersPosXYZ,
+		SortedIndexX,
+		SortedIndexY,
+		SortedIndexZ,
+		ReverseMap_SortedIndexY,
+		ReverseMap_SortedIndexZ,
+		XJumpStride,
+		IDSESeg_Dev,
+		JumpSegmentYRange_Dev, JumpSegmentZRange_Dev,
+		Dev_NNearestNeighbor, omitPercent_Dev, omitCount_Dev, RemindCount_Dev, TotalCount_Dev);*/
+
+	//Kernel_MyNeighborListCal_SortX_multipleBox_noshare_WithYLimit3 << < blocks, threads >> > (BlockNumEachBox,
+	//	IDStartEnd_Dev,
+	//	Dev_ClustersPosXYZ,
+	//	SortedIndexX,
+	//	SortedIndexY,
+	//	ReverseMap_SortedIndexY,
+	//	XJumpStride,
+	//	IDSESeg_Dev,
+	//	JumpSegmentYRange_Dev,
+	//	Dev_NNearestNeighbor);
 
 	cudaDeviceSynchronize();
 
@@ -1944,6 +3036,42 @@ void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_WithYLimit(int
 
 	cudaEventDestroy(StartEvent);
 	cudaEventDestroy(StopEvent);
+
+
+
+	cudaMemcpy(omitPercent_Host,omitPercent_Dev, NClusters * sizeof(double), cudaMemcpyDeviceToHost);
+	double TotalOmit = 0.E0;
+	for (int i = 0; i < NClusters; i++) {
+		TotalOmit = TotalOmit + omitPercent_Host[i];
+	}
+
+	std::cout << "The Omit percent is: " << TotalOmit / double(NClusters) << std::endl;
+
+
+
+	cudaMemcpy(omitCount_Host, omitCount_Dev, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+	int TotalOmitCount = 0;
+	for (int i = 0; i < NClusters; i++) {
+		TotalOmitCount = TotalOmitCount + omitCount_Host[i];
+	}
+	std::cout << "The Omit count is: " << double(TotalOmitCount) / double(NClusters) << std::endl;
+
+
+	cudaMemcpy(RemindCount_Host, RemindCount_Dev, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+	int TotalRemindCount = 0;
+	for (int i = 0; i < NClusters; i++) {
+		TotalRemindCount = TotalRemindCount + RemindCount_Host[i];
+	}
+	std::cout << "The remind count is: " << double(TotalRemindCount)/double(NClusters) << std::endl;
+
+
+	cudaMemcpy(TotalCount_Host, TotalCount_Dev, NClusters * sizeof(int), cudaMemcpyDeviceToHost);
+	int TotalCount = 0;
+	for (int i = 0; i < NClusters; i++) {
+		TotalCount = TotalCount + TotalCount_Host[i];
+	}
+	std::cout << "The total count is: " << double(TotalCount) / double(NClusters) << std::endl;
+
 }
 
 

@@ -16,11 +16,14 @@ extern "C" void My_NeighborListCal_ArbitrayBitonicSortX_multipleBox_noShared_Wit
 																						int **IDStartEnd_Dev,
 																						double* ToSortDev_ClustersPosX,
 																						double* ToSortDev_ClustersPosY,
+																							double* ToSortDev_ClustersPosZ,
 																						double** Dev_ClustersPosXYZ,
 																						int* SortedIndexX,
 																						int* SortedIndexY,
+																						int* SortedIndexZ,
 																						int* ReverseMap_SortedIndexX,
 																						int* ReverseMap_SortedIndexY,
+																						int* ReverseMap_SortedIndexZ,
 																						int* Host_NNearestNeighbor,
 																						float &timerMyMethod);
 

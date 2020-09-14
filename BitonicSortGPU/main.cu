@@ -666,11 +666,13 @@ int main(int argc, char** argv) {
 	double **Host_TestArrayIn;
 	double *Host_TestArrayIn_X;
 	double *Host_TestArrayIn_Y;
+	double *Host_TestArrayIn_Z;
 	double **Dev_TestArrayIn;
 	double *Dev_TestArrayIn_SotedX_Shared_ForX;
 	double *Dev_TestArrayIn_SotedX_noShared_ForX;
 	double *Dev_TestArrayIn_SotedX_noShared_ForX_WithYLimit;
 	double *Dev_TestArrayIn_SotedY_noShared_ForX_WithYLimit;
+	double *Dev_TestArrayIn_SotedZ_noShared_ForX_WithYLimit;
 	double *Dev_TestArrayIn_SotedX_noShared_ForX_LeftRightCohen;
 	double *Dev_TestArrayIn_SotedX_Shared_ForXY;
 	double *Dev_TestArrayIn_SotedX_noShared_ForXY;
@@ -682,6 +684,7 @@ int main(int argc, char** argv) {
 	int *SortedIndexX_Dev_noShared_ForX;
 	int *SortedIndexX_Dev_noShared_ForX_WithYLimit;
 	int *SortedIndexY_Dev_noShared_ForX_WithYLimit;
+	int *SortedIndexZ_Dev_noShared_ForX_WithYLimit;
 	int *SortedIndexX_Dev_noShared_ForX_LeftRightCohen;
 	int *SortedIndexX_Dev_Shared_ForXY;
 	int *SortedIndexX_Dev_noShared_ForXY;
@@ -691,6 +694,7 @@ int main(int argc, char** argv) {
 	int *ReverseMap_SortedIndexX_Dev_noShared_ForX;
 	int *ReverseMap_SortedIndexX_Dev_noShared_ForX_WithYLimit;
 	int *ReverseMap_SortedIndexY_Dev_noShared_ForX_WithYLimit;
+	int *ReverseMap_SortedIndexZ_Dev_noShared_ForX_WithYLimit;
 	int *ReverseMap_SortedIndexX_Dev_noShared_ForX_LeftRightCohen;
 	int *ReverseMap_SortedIndexX_Dev_Shared_ForXY;
 	int *ReverseMap_SortedIndexX_Dev_noShared_ForXY;
@@ -698,8 +702,10 @@ int main(int argc, char** argv) {
 	int *ReverseMap_SortedIndexY_Dev_noShared_ForXY;
 	int *SortedIndexX_Host;
 	int *SortedIndexY_Host;
+	int *SortedIndexZ_Host;
 	int *ReverseMap_SortedIndexX_Host;
 	int *ReverseMap_SortedIndexY_Host;
+	int *ReverseMap_SortedIndexZ_Host;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_Shared;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared;
 	int *Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit;
@@ -785,12 +791,15 @@ int main(int argc, char** argv) {
 
 			Host_TestArrayIn_X = new double[NSize];
 			Host_TestArrayIn_Y = new double[NSize];
+			Host_TestArrayIn_Z = new double[NSize];
 
 			SortedIndexX_Host = new int[NSize];
 			SortedIndexY_Host = new int[NSize];
+			SortedIndexZ_Host = new int[NSize];
 
 			ReverseMap_SortedIndexX_Host = new int[NSize];
 			ReverseMap_SortedIndexY_Host = new int[NSize];
+			ReverseMap_SortedIndexZ_Host = new int[NSize];
 
 			for (int i = 0; i < NSize; i++) {
 				Host_TestArrayIn[i] = new double[3];
@@ -801,12 +810,15 @@ int main(int argc, char** argv) {
 
 				Host_TestArrayIn_X[i] = Host_TestArrayIn[i][0];
 				Host_TestArrayIn_Y[i] = Host_TestArrayIn[i][1];
+				Host_TestArrayIn_Z[i] = Host_TestArrayIn[i][2];
 
 				SortedIndexX_Host[i] = i;
 				SortedIndexY_Host[i] = i;
+				SortedIndexZ_Host[i] = i;
 
 				ReverseMap_SortedIndexX_Host[i] = i;
 				ReverseMap_SortedIndexY_Host[i] = i;
+				ReverseMap_SortedIndexZ_Host[i] = i;
 			}
 
 
@@ -835,6 +847,7 @@ int main(int argc, char** argv) {
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_noShared_ForX, NSize * sizeof(double));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_noShared_ForX_WithYLimit, NSize * sizeof(double));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedY_noShared_ForX_WithYLimit, NSize * sizeof(double));
+			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedZ_noShared_ForX_WithYLimit, NSize * sizeof(double));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_noShared_ForX_LeftRightCohen, NSize * sizeof(double));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_Shared_ForXY, NSize * sizeof(double));
 			err = cudaMalloc((void**)&Dev_TestArrayIn_SotedX_noShared_ForXY, NSize * sizeof(double));
@@ -846,6 +859,7 @@ int main(int argc, char** argv) {
 			err = cudaMalloc((void**)&SortedIndexX_Dev_noShared_ForX, NSize * sizeof(int));
 			err = cudaMalloc((void**)&SortedIndexX_Dev_noShared_ForX_WithYLimit, NSize * sizeof(int));
 			err = cudaMalloc((void**)&SortedIndexY_Dev_noShared_ForX_WithYLimit, NSize * sizeof(int));
+			err = cudaMalloc((void**)&SortedIndexZ_Dev_noShared_ForX_WithYLimit, NSize * sizeof(int));
 			err = cudaMalloc((void**)&SortedIndexX_Dev_noShared_ForX_LeftRightCohen, NSize * sizeof(int));
 			err = cudaMalloc((void**)&SortedIndexX_Dev_Shared_ForXY, NSize * sizeof(int));
 			err = cudaMalloc((void**)&SortedIndexX_Dev_noShared_ForXY, NSize * sizeof(int));
@@ -856,6 +870,7 @@ int main(int argc, char** argv) {
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_noShared_ForX, NSize * sizeof(int));
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_noShared_ForX_WithYLimit, NSize * sizeof(int));
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexY_Dev_noShared_ForX_WithYLimit, NSize * sizeof(int));
+			err = cudaMalloc((void**)&ReverseMap_SortedIndexZ_Dev_noShared_ForX_WithYLimit, NSize * sizeof(int));
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_noShared_ForX_LeftRightCohen, NSize * sizeof(int));
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_Shared_ForXY, NSize * sizeof(int));
 			err = cudaMalloc((void**)&ReverseMap_SortedIndexX_Dev_noShared_ForXY, NSize * sizeof(int));
@@ -878,6 +893,7 @@ int main(int argc, char** argv) {
 			err = cudaMemcpy(Dev_TestArrayIn_SotedX_noShared_ForX, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedX_noShared_ForX_WithYLimit, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedY_noShared_ForX_WithYLimit, Host_TestArrayIn_Y, NSize * sizeof(double), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(Dev_TestArrayIn_SotedZ_noShared_ForX_WithYLimit, Host_TestArrayIn_Z, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedX_noShared_ForX_LeftRightCohen, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedX_Shared_ForXY, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(Dev_TestArrayIn_SotedX_noShared_ForXY, Host_TestArrayIn_X, NSize * sizeof(double), cudaMemcpyHostToDevice);
@@ -887,6 +903,7 @@ int main(int argc, char** argv) {
 			err = cudaMemcpy(SortedIndexX_Dev_noShared_ForX, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexX_Dev_noShared_ForX_WithYLimit, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexY_Dev_noShared_ForX_WithYLimit, SortedIndexY_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(SortedIndexZ_Dev_noShared_ForX_WithYLimit, SortedIndexZ_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexX_Dev_noShared_ForX_LeftRightCohen, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexX_Dev_Shared_ForXY, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(SortedIndexX_Dev_noShared_ForXY, SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
@@ -896,6 +913,7 @@ int main(int argc, char** argv) {
 			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_noShared_ForX, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_noShared_ForX_WithYLimit, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexY_Dev_noShared_ForX_WithYLimit, ReverseMap_SortedIndexY_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
+			err = cudaMemcpy(ReverseMap_SortedIndexZ_Dev_noShared_ForX_WithYLimit, ReverseMap_SortedIndexZ_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_noShared_ForX_LeftRightCohen, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_Shared_ForXY, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
 			err = cudaMemcpy(ReverseMap_SortedIndexX_Dev_noShared_ForXY, ReverseMap_SortedIndexX_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
@@ -937,11 +955,12 @@ int main(int argc, char** argv) {
 				Dev_IDStartEnd,
 				Dev_TestArrayIn_SotedX_noShared_ForX_WithYLimit,
 				Dev_TestArrayIn_SotedY_noShared_ForX_WithYLimit,
+				Dev_TestArrayIn_SotedZ_noShared_ForX_WithYLimit,
 				Dev_TestArrayIn,
 				SortedIndexX_Dev_noShared_ForX_WithYLimit,
-				SortedIndexY_Dev_noShared_ForX_WithYLimit,
+				SortedIndexY_Dev_noShared_ForX_WithYLimit, SortedIndexZ_Dev_noShared_ForX_WithYLimit,
 				ReverseMap_SortedIndexX_Dev_noShared_ForX_WithYLimit,
-				ReverseMap_SortedIndexY_Dev_noShared_ForX_WithYLimit,
+				ReverseMap_SortedIndexY_Dev_noShared_ForX_WithYLimit, ReverseMap_SortedIndexZ_Dev_noShared_ForX_WithYLimit,
 				Host_TestArrayOut_MyMehtod_ArbitrayBitonicSortX_noShared_WithYLimit,
 				timerMyMethod_SortX_noShared_WithYLimit);
 
@@ -1016,29 +1035,29 @@ int main(int argc, char** argv) {
 
 			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerCommonGPU_noShared << " for Common GPU no shared: " << NSize << std::endl;
 
-			//std::cout << "************Method Common CPU************" << std::endl;
+			////std::cout << "************Method Common CPU************" << std::endl;
 
-			Common_NeighborListCal_CPU_multipleBox(NSize, NBox, Host_IDStartEnd, Host_TestArrayIn, Host_TestArrayOut_CPU);
+			//Common_NeighborListCal_CPU_multipleBox(NSize, NBox, Host_IDStartEnd, Host_TestArrayIn, Host_TestArrayOut_CPU);
 
 			
 			//Verify
-			for (int i = 0; i < NSize; i++) {
-				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_Norm_Shared[i]) {
-					std::cout << "It is wrong for index: " << i << std::endl;
-					std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
-					std::cout << "Host_TestArrayOut_Norm_Shared result is: " << Host_TestArrayOut_Norm_Shared[i] << std::endl;
+			//for (int i = 0; i < NSize; i++) {
+			//	if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_Norm_Shared[i]) {
+			//		std::cout << "It is wrong for index: " << i << std::endl;
+			//		std::cout << "The CPU neighbor-list result is: " << Host_TestArrayOut_CPU[i] << std::endl;
+			//		std::cout << "Host_TestArrayOut_Norm_Shared result is: " << Host_TestArrayOut_Norm_Shared[i] << std::endl;
 
-					std::cout << "  Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
-						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
-						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
+			//		std::cout << "  Distance CPU: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][0]) +
+			//			(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][1]) +
+			//			(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_CPU[i]][2]) << std::endl;
 
-					std::cout << "Host_TestArrayOut_Norm_Shared calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0]) +
-						(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1]) +
-						(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2]) << std::endl;
+			//		std::cout << "Host_TestArrayOut_Norm_Shared calculation: " << (Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0])*(Host_TestArrayIn[i][0] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][0]) +
+			//			(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1])*(Host_TestArrayIn[i][1] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][1]) +
+			//			(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2])*(Host_TestArrayIn[i][2] - Host_TestArrayIn[Host_TestArrayOut_Norm_Shared[i]][2]) << std::endl;
 
-					std::cin >> noone;
-				}
-			}
+			//		std::cin >> noone;
+			//	}
+			//}
 
 			//for (int i = 0; i < NSize; i++) {
 			//	if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_MyMehtod_ArbitrayBitonicSort_noShared[i]) {
