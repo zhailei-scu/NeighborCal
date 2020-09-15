@@ -1,7 +1,49 @@
 #include "bitnicSort_toApply.h"
 #include <iostream>
+#include <vector>
+#include <algorithm>
 
 #define BLOCKSIZE_TOAPPLY 1024
+
+bool myCompare32(std::pair<double, int> A, std::pair<double, int> B) {
+	return (A.first < B.first);
+}
+
+
+void SimpleSort_multipleBox_Host(int NClusters, int NBox, int **IDStartEnd_Host, double* ToSortHost_ClustersPosX, int* SortedIndex_Host) {
+	std::vector<std::pair<double, int>> OneBox;
+	std::pair<double, int> thePair;
+
+	for (int IBox = 0; IBox < NBox; IBox++) {
+
+		OneBox.clear();
+
+		std::vector<std::pair<double, int>>().swap(OneBox);
+
+		for (int i = IDStartEnd_Host[IBox][0]; i <= IDStartEnd_Host[IBox][1]; i++) {
+			thePair.first = ToSortHost_ClustersPosX[i];
+			thePair.second = SortedIndex_Host[i];
+			OneBox.push_back(thePair);
+		}
+
+		std::sort(OneBox.begin(), OneBox.end(), myCompare32);
+
+		std::vector<std::pair<double, int>>::iterator ptr = OneBox.begin();
+
+		for (int i = IDStartEnd_Host[IBox][0]; i <= IDStartEnd_Host[IBox][1]; i++) {
+			SortedIndex_Host[i] = (*ptr).second;
+			ToSortHost_ClustersPosX[i] = (*ptr).first;
+
+			if (SortedIndex_Host[i] < 0 || SortedIndex_Host[i] >NClusters) {
+				std::cout << "It is wrong for: " << i << " " << SortedIndex_Host[i] << std::endl;
+			}
+
+
+			ptr++;
+		}
+	}
+
+}
 
 __device__ inline void Comparetor_toApply(double &KeyA, double &KeyB, int &ValueA, int &ValueB,int dir) {
 	double temp;
@@ -77,13 +119,13 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray
 	IDRelative = ICStart + tid;
 
 	Share_TestArray[tid] = padNum;
-	if (IDRelative < ICEnd) {
+	if (IDRelative <= ICEnd) {
 		Share_TestArray[tid] = Dev_TestArray[IDRelative];
 		Share_SortedIndex[tid] = SortedIndex[IDRelative];
 	}
 
 	Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = padNum;
-	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) < ICEnd) {
+	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
 		Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2] = Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2];
 		Share_SortedIndex[tid + BLOCKSIZE_TOAPPLY / 2] = SortedIndex[IDRelative + BLOCKSIZE_TOAPPLY / 2];
 	}
@@ -121,11 +163,11 @@ __global__ void Kernel_Shared_ArbitraryBitonicSort_toApply(double* Dev_TestArray
 
 	__syncthreads();
 
-	if (IDRelative < ICEnd) {
+	if (IDRelative <= ICEnd) {
 		Dev_TestArray[IDRelative] = Share_TestArray[tid];
 		SortedIndex[IDRelative] = Share_SortedIndex[tid];
 	}
-	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) < ICEnd) {
+	if ((IDRelative + BLOCKSIZE_TOAPPLY / 2) <= ICEnd) {
 		Dev_TestArray[IDRelative + BLOCKSIZE_TOAPPLY / 2] = Share_TestArray[tid + BLOCKSIZE_TOAPPLY / 2];
 		SortedIndex[IDRelative + BLOCKSIZE_TOAPPLY / 2] = Share_SortedIndex[tid + BLOCKSIZE_TOAPPLY / 2];
 	}
@@ -550,6 +592,8 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 	int MaxSegmentsNumEachBox;
 	int MaxSegmentsNumAllBox;
 	int MaxClusterNumEachBox;
+	double* TestArray_host;
+	int none;
 
 	padNum = -1.E32;
 
@@ -620,6 +664,23 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 	cudaMemcpy(IDStartEnd_ForSort_Dev, AddrStartEnd_HostRecordDev, MaxSegmentsNumAllBox * sizeof(int*), cudaMemcpyHostToDevice);
 
 
+
+
+
+
+
+	std::cout << "MaxSegmentsNumAllBox " << MaxSegmentsNumAllBox << std::endl;
+
+	std::cout << "MaxSegmentsNumEachBox " << MaxSegmentsNumEachBox << std::endl;
+
+
+	for (int i = 0; i < MaxSegmentsNumAllBox; i++) {
+		std::cout << IDStartEnd_ForSort_Host[i][0] << " " << IDStartEnd_ForSort_Host[i][1] << std::endl;
+	}
+
+
+
+
 	BXGlobal = BLOCKSIZE_TOAPPLY;
 	BYGlobal = 1;
 	NBGlobal = MaxSegmentsNumAllBox / 2;
@@ -643,22 +704,69 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 
 		Kernel_Shared_Merge_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, SortedIndex, IDStartEnd_ForSort_Dev, dir, padNum, 1);
 
+
+		//TestArray_host = new double[2048 * 10];
+
+
+		//cudaMemcpy(TestArray_host, ToSortDev_ClustersPosX, 4096 * 10 * sizeof(double), cudaMemcpyDeviceToHost);
+		//for (int x = 0; x < 4; x++) {
+		//	std::cout << "******************x = " << x << std::endl;
+		//	for (int y = x * 1024; y < (x + 1) * 1024; y++) {
+
+		//		std::cout << TestArray_host[y] << "  ";
+		//	}
+		//}
+
+		//std::cout << std::endl;
+		//std::cin >> none;
+
 		for (int Size = 2; Size <= MaxSegmentsNumEachBox; Size <<= 1) {
 
 			for (int Stride = Size / 2; Stride >= 0; Stride >>= 1) {
 
 				if (Stride >= 1) {
 
-					Kernel_GlobalMerge_Pre_toApply << <blocksGlobal, 1 >> > (MaxSegmentsNumEachBox,Size, Stride, IDStartEnd_ForSort_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
+					Kernel_GlobalMerge_Pre_toApply << <blocksGlobal, 1 >> > (MaxSegmentsNumEachBox/2,Size, Stride, IDStartEnd_ForSort_Dev, ToSortDev_ClustersPosX, dir, OEFlags);
 
-					Kernel_GlobalMerge_toApply << <blocksGlobal, threadsGlobal >> > (MaxSegmentsNumEachBox,Size, Stride, IDStartEnd_ForSort_Dev, ToSortDev_ClustersPosX, SortedIndex, dir, OEFlags);
+					Kernel_GlobalMerge_toApply << <blocksGlobal, threadsGlobal >> > (MaxSegmentsNumEachBox/2,Size, Stride, IDStartEnd_ForSort_Dev, ToSortDev_ClustersPosX, SortedIndex, dir, OEFlags);
 				}
 				else {
 
 					Kernel_Shared_Merge_Last_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, SortedIndex, IDStartEnd_ForSort_Dev, dir, Size);
 
+
+
+
+					//cudaMemcpy(TestArray_host, ToSortDev_ClustersPosX, 4096 * 10 * sizeof(double), cudaMemcpyDeviceToHost);
+					//for (int x = 0; x < 4; x++) {
+					//	std::cout << "******************x = " << x << std::endl;
+					//	for (int y = x * 1024; y < (x + 1) * 1024; y++) {
+					//		std::cout << TestArray_host[y] << "  ";
+					//	}
+					//}
+
+					//std::cout << std::endl;
+					//std::cin >> none;
+
+
+
+
+
+
 					break;
 				}
+
+
+				//cudaMemcpy(TestArray_host, ToSortDev_ClustersPosX, 4096 * 10 * sizeof(double), cudaMemcpyDeviceToHost);
+				//for (int x = 0; x < 4; x++) {
+				//	std::cout << "******************x = " << x << std::endl;
+				//	for (int y = x * 1024; y < (x + 1) * 1024; y++) {
+				//		std::cout << TestArray_host[y] << "  ";
+				//	}
+				//}
+
+				//std::cout << std::endl;
+				//std::cin >> none;
 
 			}
 

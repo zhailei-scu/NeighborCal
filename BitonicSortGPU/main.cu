@@ -1,4 +1,5 @@
 #include "bitnicSort.h"
+#include "bitnicSort_toApply.h"
 #include "radixSort.h"
 #include <iostream>
 #include <stdio.h>
@@ -123,13 +124,6 @@ int main_wait(int argc, char** argv) {
 
 					std::cin >> noone;
 				}
-
-
-
-
-
-
-
 
 			}
 
@@ -430,6 +424,162 @@ int main_SortCompare(int argc, char** argv) {
 	return 0;
 }
 
+//int main_SortCompare_multipleBox(int argc, char** argv) {
+int main(int argc, char** argv) {
+	int NSize;
+	double *Host_TestArrayIn;
+	double *Host_TestArrayOut_Arb;
+	double *Host_TestArrayOut_CPU;
+	double *Dev_TestArray;
+	int **Host_IDStartEnd;
+	int **Dev_IDStartEnd;
+	int *SortedIndex_Host;
+	int *SortedIndex_Dev;
+	int *TestArray_Dev_OneDim_StartEndID;
+	int **Addr_HostRecordDev_StartEndID;
+	int currentDevice;
+	int noone;
+	float timerArbitraryBitonicSort;
+	float totalArbitraryBitonicSort;
+	float timerCPU;
+	float totalTimerCPU;
+
+	int err = cudaGetDevice(&currentDevice);
+
+	err = cudaSetDevice(0);
+
+	srand(55352);
+
+
+	totalArbitraryBitonicSort = 0.E0;
+
+	timerArbitraryBitonicSort = 0.E0;
+
+	totalTimerCPU = 0.E0;
+
+	for (int NRand = 0; NRand < 1; NRand++) {
+		int Nbox = 800;
+		int NSizeEachBox;
+		for (NSizeEachBox = 50 ; NSizeEachBox < 100000000; NSizeEachBox <<= 1) {
+			NSize = NSizeEachBox * Nbox;
+
+			Host_TestArrayIn = new double[NSize];
+			Host_TestArrayOut_CPU = new double[NSize];
+			Host_TestArrayOut_Arb = new double[NSize];
+			SortedIndex_Host = new int[NSize];
+
+			Host_IDStartEnd = new int*[Nbox];
+			Addr_HostRecordDev_StartEndID = new int*[Nbox];
+
+			for (int i = 0; i < NSize; i++) {
+				Host_TestArrayIn[i] = double(rand()) / RAND_MAX;
+				Host_TestArrayOut_CPU[i] = Host_TestArrayIn[i];
+				SortedIndex_Host[i] = i;
+			}
+
+			cudaMalloc((void**)&Dev_TestArray, NSize * sizeof(double));
+			cudaMalloc((void**)&SortedIndex_Dev, NSize * sizeof(int));
+
+			cudaMemcpy(Dev_TestArray, Host_TestArrayIn,NSize*sizeof(double),cudaMemcpyHostToDevice);
+			cudaMemcpy(SortedIndex_Dev, SortedIndex_Host, NSize * sizeof(int), cudaMemcpyHostToDevice);
+
+			err = cudaMalloc((void**)&Dev_IDStartEnd, Nbox * sizeof(int*));
+			for (int i = 0; i < Nbox; i++) {
+				Host_IDStartEnd[i] = new int[2];
+
+				Host_IDStartEnd[i][0] = i * NSizeEachBox;
+
+				Host_IDStartEnd[i][1] = (i + 1)*NSizeEachBox - 1;
+
+				if (Host_IDStartEnd[i][1] < 0) Host_IDStartEnd[i][1] = 0;
+
+				err = cudaMalloc((void**)&TestArray_Dev_OneDim_StartEndID, 2 * sizeof(int));
+
+				cudaMemcpy(TestArray_Dev_OneDim_StartEndID, Host_IDStartEnd[i], 2 * sizeof(int), cudaMemcpyHostToDevice);
+
+				Addr_HostRecordDev_StartEndID[i] = TestArray_Dev_OneDim_StartEndID;
+			}
+
+			cudaMemcpy(Dev_IDStartEnd, Addr_HostRecordDev_StartEndID, Nbox * sizeof(int*), cudaMemcpyHostToDevice);
+
+			/*ArbitraryBitonicSort*/
+
+			ArbitraryBitonicSort_toApply(Nbox, Host_IDStartEnd, Dev_IDStartEnd,Dev_TestArray, SortedIndex_Dev, 1);
+
+			totalArbitraryBitonicSort = totalArbitraryBitonicSort + timerArbitraryBitonicSort;
+
+			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timerArbitraryBitonicSort << " for Arbitrary bitonic sort size: " << NSize << std::endl;
+
+			cudaMemcpy(Host_TestArrayOut_Arb, Dev_TestArray, NSize * sizeof(double), cudaMemcpyDeviceToHost);
+			cudaMemcpy(SortedIndex_Host, SortedIndex_Dev, NSize * sizeof(int), cudaMemcpyDeviceToHost);
+
+
+
+			/*CPU*/
+
+			clock_t timeStart = clock();
+
+			SimpleSort_multipleBox_Host(NSize, Nbox, Host_IDStartEnd, Host_TestArrayOut_CPU, SortedIndex_Host);
+
+			clock_t timeEnd = clock();
+
+			totalTimerCPU = totalTimerCPU + timeEnd - timeStart;
+
+			std::cout << "The elapse time is (ms): " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << timeEnd - timeStart << " for cpu sort size: " << NSize << std::endl;
+
+			std::cout << "*******Check for size: " << NSize << std::endl;
+			for (int i = 0; i < NSize; i++) {
+
+
+				if (Host_TestArrayOut_CPU[i] != Host_TestArrayOut_Arb[i]) {
+					std::cout << "Wrong for arbitrary bitinic sorting " << Host_TestArrayOut_CPU[i] << " for array size is " << NSize << std::endl;
+					std::cout << "The position is " << i << std::endl;
+
+
+					/*std::cout << "***************Host_TestArrayIn************" << std::endl;
+					for (int j = 0; j < NSize; j++) {
+						std::cout << Host_TestArrayIn[j] << " ";
+					}
+					std::cout << std::endl;*/
+
+					std::cout << "***************Host_TestArrayOut_Arb***************" << std::endl;
+					for (int j = 0; j < 1024; j++) {
+						std::cout << Host_TestArrayOut_Arb[j] << " ";
+					}
+					std::cout << std::endl;
+
+
+					std::cout << "***************Host_TestArrayOut_CPU**************" << std::endl;
+					for (int j = 0; j < 1024; j++) {
+						std::cout << Host_TestArrayOut_CPU[j] << " ";
+					}
+					std::cout << std::endl;
+
+					std::cin >> noone;
+				}
+			}
+
+			delete[] Host_TestArrayIn;
+			delete[] Host_TestArrayOut_CPU;
+			delete[] Host_TestArrayOut_Arb;
+
+			cudaFree(Dev_TestArray);
+			cudaFree(SortedIndex_Dev);
+		}
+
+	}
+
+
+	std::cout << "The total elapse time for arbitray bitonic sort is (ms) : " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << totalArbitraryBitonicSort << std::endl;
+
+
+	std::cout << "The total elapse time for CPU sort is (ms) : " << std::setiosflags(std::ios::fixed) << std::setprecision(8) << totalTimerCPU << std::endl;
+
+	err = cudaSetDevice(currentDevice);
+
+	return 0;
+}
+
 
 int main_SingleBoxNeighborCal(int argc, char** argv) {
 	int NSize;
@@ -660,8 +810,8 @@ int main_SingleBoxNeighborCal(int argc, char** argv) {
 }
 
 
-//int main_MultipleBoxNeighborCal(int argc, char** argv) {
-int main(int argc, char** argv) {
+int main_MultipleBoxNeighborCal(int argc, char** argv) {
+//int main(int argc, char** argv) {
 	int NSize;
 	double **Host_TestArrayIn;
 	double *Host_TestArrayIn_X;
