@@ -563,7 +563,7 @@ extern "C" void CPU_GlobalMerge_toApply(int Size, int TotalSegments, int Segment
 	}
 }
 
-extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_Host, int** IDStartEnd_ForBox_Dev, double* ToSortDev_ClustersPosX, int* SortedIndex, int dir) {
+extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_Host, int** IDStartEnd_ForBox_Dev, double* ToSortDev_ClustersPosX, int* SortedIndex, int dir, float & timerArbitraryBitonicSort) {
 	//Local Vars
 	int *OEFlags;
 	int NBGlobal;
@@ -592,8 +592,11 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 	int MaxSegmentsNumEachBox;
 	int MaxSegmentsNumAllBox;
 	int MaxClusterNumEachBox;
-	double* TestArray_host;
-	int none;
+	cudaEvent_t StartEvent;
+	cudaEvent_t StopEvent;
+
+	cudaEventCreate(&StartEvent);
+	cudaEventCreate(&StopEvent);
 
 	padNum = -1.E32;
 
@@ -664,23 +667,6 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 	cudaMemcpy(IDStartEnd_ForSort_Dev, AddrStartEnd_HostRecordDev, MaxSegmentsNumAllBox * sizeof(int*), cudaMemcpyHostToDevice);
 
 
-
-
-
-
-
-	std::cout << "MaxSegmentsNumAllBox " << MaxSegmentsNumAllBox << std::endl;
-
-	std::cout << "MaxSegmentsNumEachBox " << MaxSegmentsNumEachBox << std::endl;
-
-
-	for (int i = 0; i < MaxSegmentsNumAllBox; i++) {
-		std::cout << IDStartEnd_ForSort_Host[i][0] << " " << IDStartEnd_ForSort_Host[i][1] << std::endl;
-	}
-
-
-
-
 	BXGlobal = BLOCKSIZE_TOAPPLY;
 	BYGlobal = 1;
 	NBGlobal = MaxSegmentsNumAllBox / 2;
@@ -697,28 +683,16 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 	blocksShared = dim3(NBXShared, NBYShared, 1);
 	threadsShared = dim3(BXShared, BYShared, 1);
 
+	cudaDeviceSynchronize();
+
+	cudaEventRecord(StartEvent, 0);
+
 	if (MaxClusterNumEachBox <= BLOCKSIZE_TOAPPLY) {
 		Kernel_Shared_ArbitraryBitonicSort_toApply << <blocksShared, threadsShared >> > (ToSortDev_ClustersPosX, SortedIndex, IDStartEnd_ForSort_Dev, dir, padNum);
 	}
 	else {
 
 		Kernel_Shared_Merge_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, SortedIndex, IDStartEnd_ForSort_Dev, dir, padNum, 1);
-
-
-		//TestArray_host = new double[2048 * 10];
-
-
-		//cudaMemcpy(TestArray_host, ToSortDev_ClustersPosX, 4096 * 10 * sizeof(double), cudaMemcpyDeviceToHost);
-		//for (int x = 0; x < 4; x++) {
-		//	std::cout << "******************x = " << x << std::endl;
-		//	for (int y = x * 1024; y < (x + 1) * 1024; y++) {
-
-		//		std::cout << TestArray_host[y] << "  ";
-		//	}
-		//}
-
-		//std::cout << std::endl;
-		//std::cin >> none;
 
 		for (int Size = 2; Size <= MaxSegmentsNumEachBox; Size <<= 1) {
 
@@ -734,44 +708,24 @@ extern "C" void ArbitraryBitonicSort_toApply(int NBox, int** IDStartEnd_ForBox_H
 
 					Kernel_Shared_Merge_Last_toApply << <blocksShared, threadsShared >> > (MaxSegmentsNumEachBox,ToSortDev_ClustersPosX, SortedIndex, IDStartEnd_ForSort_Dev, dir, Size);
 
-
-
-
-					//cudaMemcpy(TestArray_host, ToSortDev_ClustersPosX, 4096 * 10 * sizeof(double), cudaMemcpyDeviceToHost);
-					//for (int x = 0; x < 4; x++) {
-					//	std::cout << "******************x = " << x << std::endl;
-					//	for (int y = x * 1024; y < (x + 1) * 1024; y++) {
-					//		std::cout << TestArray_host[y] << "  ";
-					//	}
-					//}
-
-					//std::cout << std::endl;
-					//std::cin >> none;
-
-
-
-
-
-
 					break;
 				}
-
-
-				//cudaMemcpy(TestArray_host, ToSortDev_ClustersPosX, 4096 * 10 * sizeof(double), cudaMemcpyDeviceToHost);
-				//for (int x = 0; x < 4; x++) {
-				//	std::cout << "******************x = " << x << std::endl;
-				//	for (int y = x * 1024; y < (x + 1) * 1024; y++) {
-				//		std::cout << TestArray_host[y] << "  ";
-				//	}
-				//}
-
-				//std::cout << std::endl;
-				//std::cin >> none;
 
 			}
 
 		}
 	}
+
+	cudaEventRecord(StopEvent, 0);
+
+	cudaEventSynchronize(StopEvent);
+
+	cudaEventElapsedTime(&timerArbitraryBitonicSort, StartEvent, StopEvent);
+
+	cudaDeviceSynchronize();
+
+	cudaEventDestroy(StartEvent);
+	cudaEventDestroy(StopEvent);
 
 	cudaFree(OEFlags);
 }
